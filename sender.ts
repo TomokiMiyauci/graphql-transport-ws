@@ -8,7 +8,7 @@ export interface Sender {
 }
 
 export class SenderImpl implements Sender {
-  constructor(public socket: WebSocket) {}
+  constructor(protected socket: WebSocket) {}
 
   ping() {
     safeSend(this.socket, Messenger.ping());

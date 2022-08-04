@@ -2,7 +2,6 @@ import { Sender, SenderImpl } from "../sender.ts";
 import { ClientMessenger } from "./message.ts";
 import { safeSend } from "../utils.ts";
 import { GraphQLParameters } from "../deps.ts";
-import { PROTOCOL } from "../constants.ts";
 
 export interface ClientSender extends Sender {
   connectionInit(): void;
@@ -10,7 +9,7 @@ export interface ClientSender extends Sender {
 }
 
 export class ClientSenderImpl extends SenderImpl implements ClientSender {
-  constructor(public socket: WebSocket) {
+  constructor(protected socket: WebSocket) {
     super(socket);
   }
 
@@ -23,7 +22,6 @@ export class ClientSenderImpl extends SenderImpl implements ClientSender {
   }
 }
 
-export function createSender(url: string | URL): ClientSender {
-  const ws = new WebSocket(url, PROTOCOL);
-  return new ClientSenderImpl(ws);
+export function createSender(socket: WebSocket): ClientSender {
+  return new ClientSenderImpl(socket);
 }
