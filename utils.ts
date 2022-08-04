@@ -1,4 +1,5 @@
 import { isPlainObject } from "./deps.ts";
+import { PROTOCOL } from "./constants.ts";
 
 export function safeSend(
   socket: WebSocket,
@@ -18,4 +19,9 @@ export function safeSend(
       // noop
     }
   }
+}
+
+/** Create `WebSocket` instance with `graphql-transport-ws` sub-protocol.  */
+export function createWebSocket(url: string | URL): WebSocket {
+  return new WebSocket(url, PROTOCOL);
 }

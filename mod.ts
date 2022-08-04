@@ -15,3 +15,4 @@ export {
 export { default as MessageType } from "./message_type.ts";
 export { PROTOCOL } from "./constants.ts";
 export { PrivateStatus } from "./status.ts";
+export { createWebSocket } from "./utils.ts";
