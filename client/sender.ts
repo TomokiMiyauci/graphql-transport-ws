@@ -32,7 +32,7 @@ export function createSender(socket: WebSocket): ClientSender {
 }
 
 type Result = {
-  /** Whether send message immediately or not.　*/
+  /** Whether send message immediately or not.*/
   immediate: boolean;
   dispose?: () => void;
 };
