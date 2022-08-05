@@ -45,6 +45,8 @@ export type ClearableMessageHandler = (
   ev: MessageEvent,
 ) => Promise<(() => void) | undefined>;
 
+const DEFAULT_CONNECTION_TIMEOUT = 3_000;
+
 export type Params = { socket: WebSocket } & RequiredExecutionArgs;
 export type Options = MessageEventHandlers & PartialExecutionArgs;
 
@@ -67,6 +69,7 @@ export function createMessageHandler(
   }: Readonly<Partial<Options>> = {},
 ): ClearableMessageHandler {
   const idMap = new Map<string, AsyncGenerator>();
+  let hasConnected = false;
 
   return async (ev) => {
     const [message, error] = parseMessage(ev.data);
@@ -79,8 +82,28 @@ export function createMessageHandler(
       return;
     }
 
+    // Close socket if the connection has not been initialized after the specified wait timeout.
+    const clear = setClearableTimeout(() => {
+      if (!hasConnected) {
+        socket.close(
+          PrivateStatus.ConnectionInitializationTimeout,
+          PRIVATE_STATUS_TEXT[PrivateStatus.ConnectionInitializationTimeout],
+        );
+      }
+    }, DEFAULT_CONNECTION_TIMEOUT);
+
     switch (message.type) {
       case MessageType.ConnectionInit: {
+        if (hasConnected) {
+          socket.close(
+            PrivateStatus.TooManyInitializationRequests,
+            PRIVATE_STATUS_TEXT[PrivateStatus.TooManyInitializationRequests],
+          );
+          break;
+        }
+
+        hasConnected = true;
+
         safeSend(
           socket,
           ServerMessenger.connectionArc(),
@@ -193,7 +216,9 @@ export function createMessageHandler(
       }
     }
 
-    return () => {};
+    return () => {
+      clear();
+    };
   };
 }
 
@@ -233,5 +258,15 @@ export function createSocketHandler(
       socket.removeEventListener("open", openHandler);
       socket.removeEventListener("message", messageHandler);
     }, { once: true });
+  };
+}
+
+function setClearableTimeout(
+  ...args: Parameters<typeof setTimeout>
+): () => void {
+  const id = setTimeout.apply(null, args);
+
+  return () => {
+    clearTimeout(id);
   };
 }
