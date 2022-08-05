@@ -3,13 +3,23 @@ export enum PrivateStatus {
   InternalClientError = 4005,
   BadRequest = 4400,
   BadResponse = 4004,
-  /** Tried subscribing before connect ack */
   Unauthorized = 4401,
   Forbidden = 4403,
   SubprotocolNotAcceptable = 4406,
-  ConnectionInitialisationTimeout = 4408,
+  ConnectionInitializationTimeout = 4408,
   ConnectionAcknowledgementTimeout = 4504,
   /** Subscriber distinction is very important */
   SubscriberAlreadyExists = 4409,
-  TooManyInitialisationRequests = 4429,
+  TooManyInitializationRequests = 4429,
 }
+
+export const PRIVATE_STATUS_TEXT = {
+  [PrivateStatus.Unauthorized]: `Unauthorized`,
+  [PrivateStatus.ConnectionInitializationTimeout]:
+    `Connection initialization timeout`,
+  [PrivateStatus.SubscriberAlreadyExists]: (id: string): string =>
+    `Subscriber for ${id} already exists`,
+  [PrivateStatus.TooManyInitializationRequests]:
+    `Too many initialization requests`,
+  [PrivateStatus.BadRequest]: (message: string) => message,
+};
