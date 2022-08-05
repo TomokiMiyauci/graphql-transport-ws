@@ -6,7 +6,7 @@ import {
   GraphQLRequestParameters,
   ObjMap,
 } from "../deps.ts";
-import { createWebSocket } from "../utils.ts";
+import { createWebSocket, Disposable, Dispose } from "../utils.ts";
 
 type CapturedCallbacks<TData = ObjMap<unknown>, TExtensions = ObjMap<unknown>> =
   {
@@ -14,66 +14,104 @@ type CapturedCallbacks<TData = ObjMap<unknown>, TExtensions = ObjMap<unknown>> =
 
     onError(callback: GraphQLFormattedError[]): void;
 
-    onComplete(): void;
+    onCompleted(): void;
   };
 
 export interface Client {
   subscribe(
     graphqlParams: Readonly<GraphQLRequestParameters>,
-    callbacks: CapturedCallbacks,
-  ): { id: string };
+    callbacks?: Partial<CapturedCallbacks>,
+  ): { id: string } & Disposable;
 
   complete(id: string): void;
+
+  socket: WebSocket;
 }
 
 export class ClientImpl implements Client {
   public socket: WebSocket;
   #sender: ClientSender;
+
+  /** Memory completed subscription ids. */
+  #idMap: ExpandedMap<string, (() => void) | undefined>;
   constructor(url: string | URL) {
     this.socket = createWebSocket(url);
     this.#sender = createSender(this.socket);
+    this.#idMap = new ExpandedMap<string, (() => void) | undefined>();
 
     this.#sender.connectionInit();
   }
 
   subscribe<TData = ObjMap<unknown>, TExtensions = ObjMap<unknown>>(
     graphqlParams: Readonly<GraphQLRequestParameters>,
-    { onComplete, onError, onNext }: Readonly<
+    { onCompleted, onError, onNext }: Readonly<
       Partial<CapturedCallbacks<TData, TExtensions>>
     > = {},
-  ): { id: string } {
+  ): { id: string } & Disposable {
     const id = crypto.randomUUID();
+
+    this.#idMap.set(id, onCompleted);
+
+    function isReceivable(this: ClientImpl, fromId: string): boolean {
+      return id === fromId && this.#idMap.has(id);
+    }
 
     const socketHandler = createSocketHandler({
       onNext: ({ data }) => {
-        if (onNext && data.id === id) {
+        if (onNext && isReceivable.call(this, data.id)) {
           // deno-lint-ignore no-explicit-any
           onNext(data.payload as any);
         }
       },
       onError: ({ data }) => {
-        if (onError && data.id === id) {
+        if (onError && isReceivable.call(this, data.id)) {
           onError(data.payload);
         }
       },
-      onComplete: ({ data }) => {
-        if (onComplete && data.id === id) {
-          onComplete();
-        }
+      onComplete: ({ data: { id } }) => {
+        this.#idMap.deleteThen(id, (v) => {
+          this.#sender.complete(id);
+          v?.();
+        });
       },
     });
 
-    socketHandler(this.socket);
-    this.#sender.subscribe(id, graphqlParams);
+    const disposeSocket = socketHandler(this.socket);
+    const disposeSubscribeMessageSending = this.#sender.subscribe(
+      id,
+      graphqlParams,
+    );
 
-    return { id };
+    const dispose: Dispose = () => {
+      disposeSubscribeMessageSending?.();
+      disposeSocket();
+    };
+
+    return { id, dispose };
   }
 
   complete(id: string): void {
-    this.#sender.complete(id);
+    this.#idMap.deleteThen(id, (v) => {
+      this.#sender.complete(id);
+      v?.();
+    });
   }
 }
 
 export function createClient(url: string | URL): Client {
   return new ClientImpl(url);
+}
+
+class ExpandedMap<K, V> extends Map<K, V> {
+  constructor() {
+    super();
+  }
+
+  deleteThen(key: K, fn: (value: V) => void) {
+    if (this.has(key)) {
+      const value = this.get(key)!;
+      this.delete(key);
+      fn(value);
+    }
+  }
 }

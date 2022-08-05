@@ -1,6 +1,6 @@
-import { MessageHandler, SocketHandler } from "../types.ts";
+import { MessageHandler } from "../types.ts";
 import { PrivateStatus } from "../status.ts";
-import { safeSend } from "../utils.ts";
+import { Dispose, safeSend } from "../utils.ts";
 import { ClientMessenger, parseMessage } from "./message.ts";
 import {
   CompleteMessage,
@@ -45,7 +45,7 @@ export function createMessageHandler(
       case MessageType.Ping: {
         safeSend(
           socket,
-          ClientMessenger.pong(),
+          JSON.stringify(ClientMessenger.pong()),
         );
 
         await onPing?.(deserializedMessageEvent);
@@ -53,27 +53,27 @@ export function createMessageHandler(
       }
 
       case MessageType.Pong: {
-        onPong?.(deserializedMessageEvent);
+        await onPong?.(deserializedMessageEvent);
         break;
       }
 
       case MessageType.ConnectionAck: {
-        onConnectionArc?.(deserializedMessageEvent);
+        await onConnectionArc?.(deserializedMessageEvent);
         break;
       }
 
       case MessageType.Next: {
-        onNext?.(deserializedMessageEvent);
+        await onNext?.(deserializedMessageEvent);
         break;
       }
 
       case MessageType.Error: {
-        onError?.(deserializedMessageEvent);
+        await onError?.(deserializedMessageEvent);
         break;
       }
 
       case MessageType.Complete: {
-        onComplete?.(deserializedMessageEvent);
+        await onComplete?.(deserializedMessageEvent);
       }
     }
   };
@@ -81,14 +81,17 @@ export function createMessageHandler(
 
 export function createSocketHandler(
   options?: Partial<MessageEventHandlers>,
-): SocketHandler {
+): (socket: WebSocket) => Dispose {
   return (socket) => {
     const messageHandler = createMessageHandler({ socket }, options);
 
-    socket.addEventListener("message", messageHandler);
-
-    socket.addEventListener("close", () => {
+    const dispose: Dispose = () => {
       socket.removeEventListener("message", messageHandler);
-    }, { once: true });
+    };
+
+    socket.addEventListener("message", messageHandler);
+    socket.addEventListener("close", dispose, { once: true });
+
+    return dispose;
   };
 }

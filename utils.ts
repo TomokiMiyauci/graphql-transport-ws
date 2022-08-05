@@ -8,6 +8,10 @@ type Result =
 
 export type Dispose = () => void;
 
+export interface Disposable {
+  dispose: Dispose;
+}
+
 export function safeSend(
   socket: WebSocket,
   data: string | ArrayBufferLike | Blob | ArrayBufferView,
