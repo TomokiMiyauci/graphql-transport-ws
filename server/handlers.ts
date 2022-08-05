@@ -41,6 +41,10 @@ type MessageEventHandlers = {
   onComplete: MessageHandler<CompleteMessage>;
 };
 
+export type ClearableMessageHandler = (
+  ev: MessageEvent,
+) => Promise<(() => void) | undefined>;
+
 export type Params = { socket: WebSocket } & RequiredExecutionArgs;
 export type Options = MessageEventHandlers & PartialExecutionArgs;
 
@@ -61,17 +65,18 @@ export function createMessageHandler(
     typeResolver,
     variableValues,
   }: Readonly<Partial<Options>> = {},
-): MessageHandler {
+): ClearableMessageHandler {
   const idMap = new Map<string, AsyncGenerator>();
 
   return async (ev) => {
     const [message, error] = parseMessage(ev.data);
 
     if (!message) {
-      return socket.close(
+      socket.close(
         PrivateStatus.BadRequest,
         `Invalid message received. ${error.message}`,
       );
+      return;
     }
 
     switch (message.type) {
@@ -187,6 +192,8 @@ export function createMessageHandler(
         break;
       }
     }
+
+    return () => {};
   };
 }
 
