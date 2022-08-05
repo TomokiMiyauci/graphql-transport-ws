@@ -1,3 +1,15 @@
+# [1.0.0-beta.4](https://github.com/TomokiMiyauci/graphql-transport-ws/compare/1.0.0-beta.3...1.0.0-beta.4) (2022-08-05)
+
+
+### Bug Fixes
+
+* **client:** fix to message handler receive deserialized message ([6fc1533](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/6fc15337696f580f9ac1861a6c3cfd84d1a4c2ad))
+
+
+### Features
+
+* **client:** use lazy sending message ([2e6cf45](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/2e6cf45a9467e1da22216e268491657969a7899b))
+
 # [1.0.0-beta.3](https://github.com/TomokiMiyauci/graphql-transport-ws/compare/1.0.0-beta.2...1.0.0-beta.3) (2022-08-05)
 
 
