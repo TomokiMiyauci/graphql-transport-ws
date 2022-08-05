@@ -32,6 +32,7 @@ import {
 } from "../message.ts";
 import { parseMessage, ServerMessenger } from "./message.ts";
 import { PROTOCOL } from "../constants.ts";
+import { DEFAULT_CONNECTION_TIMEOUT } from "./constants.ts";
 
 type MessageEventHandlers = {
   onPing: MessageHandler<PongMessage>;
@@ -45,10 +46,21 @@ export type ClearableMessageHandler = (
   ev: MessageEvent,
 ) => Promise<(() => void) | undefined>;
 
-const DEFAULT_CONNECTION_TIMEOUT = 3_000;
-
 export type Params = { socket: WebSocket } & RequiredExecutionArgs;
-export type Options = MessageEventHandlers & PartialExecutionArgs;
+export type Options = MessageEventHandlers & PartialExecutionArgs & {
+  /**
+   * The amount of time for which the server will wait
+   * for `ConnectionInit` message.
+   *
+   * If the wait timeout has passed and the client
+   * has not sent the `connection_init` message,
+   * the server will terminate the socket by
+   * dispatching a close event `4408: Connection initialization timeout`
+   *
+   * @default 3_000
+   */
+  connectionInitWaitTimeout?: number;
+};
 
 export function createMessageHandler(
   { socket, schema }: Readonly<Params>,
@@ -66,6 +78,7 @@ export function createMessageHandler(
     subscribeFieldResolver,
     typeResolver,
     variableValues,
+    connectionInitWaitTimeout = DEFAULT_CONNECTION_TIMEOUT,
   }: Readonly<Partial<Options>> = {},
 ): ClearableMessageHandler {
   const idMap = new Map<string, AsyncGenerator>();
@@ -90,7 +103,7 @@ export function createMessageHandler(
           PRIVATE_STATUS_TEXT[PrivateStatus.ConnectionInitializationTimeout],
         );
       }
-    }, DEFAULT_CONNECTION_TIMEOUT);
+    }, connectionInitWaitTimeout);
 
     switch (message.type) {
       case MessageType.ConnectionInit: {
