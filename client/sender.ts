@@ -1,10 +1,10 @@
 import { Sender, SenderImpl } from "../sender.ts";
 import { ClientMessenger } from "./message.ts";
-import { GraphQLParameters } from "../deps.ts";
+import { GraphQLRequestParameters } from "../deps.ts";
 
 export interface ClientSender extends Sender {
   connectionInit(): void;
-  subscribe(id: string, payload: GraphQLParameters): void;
+  subscribe(id: string, payload: GraphQLRequestParameters): void;
 }
 
 export class ClientSenderImpl extends SenderImpl implements ClientSender {
@@ -19,7 +19,7 @@ export class ClientSenderImpl extends SenderImpl implements ClientSender {
     );
   }
 
-  subscribe(id: string, payload: GraphQLParameters): void {
+  subscribe(id: string, payload: GraphQLRequestParameters): void {
     lazySend(
       this.socket,
       JSON.stringify(ClientMessenger.subscribe(id, payload)),
