@@ -1,24 +1,30 @@
 import { Messenger } from "./message.ts";
-import { safeSend } from "./utils.ts";
+import { Dispose, getDispose, safeSend } from "./utils.ts";
 
 export interface Sender {
-  ping(): void;
-  pong(): void;
-  complete(id: string): void;
+  ping(): Dispose | undefined;
+  pong(): Dispose | undefined;
+  complete(id: string): Dispose | undefined;
 }
 
 export class SenderImpl implements Sender {
   constructor(protected socket: WebSocket) {}
 
   ping() {
-    safeSend(this.socket, Messenger.ping());
+    const result = safeSend(this.socket, JSON.stringify(Messenger.ping()));
+    return getDispose(result);
   }
 
-  pong(): void {
-    safeSend(this.socket, Messenger.pong());
+  pong() {
+    const result = safeSend(this.socket, JSON.stringify(Messenger.pong()));
+    return getDispose(result);
   }
 
-  complete(id: string): void {
-    safeSend(this.socket, Messenger.complete(id));
+  complete(id: string) {
+    const result = safeSend(
+      this.socket,
+      JSON.stringify(Messenger.complete(id)),
+    );
+    return getDispose(result);
   }
 }

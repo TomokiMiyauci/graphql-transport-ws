@@ -119,7 +119,7 @@ export function createMessageHandler(
 
         safeSend(
           socket,
-          ServerMessenger.connectionArc(),
+          JSON.stringify(ServerMessenger.connectionArc()),
         );
         await onConnectionInit?.(ev);
         break;
@@ -128,7 +128,7 @@ export function createMessageHandler(
       case MessageType.Ping: {
         safeSend(
           socket,
-          Messenger.pong(),
+          JSON.stringify(Messenger.pong()),
         );
         await onPing?.(ev);
         break;
@@ -162,7 +162,7 @@ export function createMessageHandler(
         );
         if (!documentNode) {
           const msg = ServerMessenger.error(id, [error]);
-          safeSend(socket, msg);
+          safeSend(socket, JSON.stringify(msg));
           break;
         }
 
@@ -173,7 +173,7 @@ export function createMessageHandler(
             id,
             validationResult.map(toJSON),
           );
-          safeSend(socket, msg);
+          safeSend(socket, JSON.stringify(msg));
           break;
         }
 
@@ -184,7 +184,7 @@ export function createMessageHandler(
             new GraphQLError("Unable to identify operation"),
           ]);
 
-          safeSend(socket, msg);
+          safeSend(socket, JSON.stringify(msg));
           break;
         }
 
@@ -212,7 +212,7 @@ export function createMessageHandler(
 
           for await (const result of executionResult) {
             const msg = ServerMessenger.next(id, result);
-            safeSend(socket, msg);
+            safeSend(socket, JSON.stringify(msg));
           }
         } else {
           const msg = isRequestError(executionResult)
@@ -222,11 +222,11 @@ export function createMessageHandler(
             )
             : ServerMessenger.next(id, executionResult);
 
-          safeSend(socket, msg);
+          safeSend(socket, JSON.stringify(msg));
         }
 
         const msg = ServerMessenger.complete(id);
-        safeSend(socket, msg);
+        safeSend(socket, JSON.stringify(msg));
         idMap.delete(id);
         break;
       }

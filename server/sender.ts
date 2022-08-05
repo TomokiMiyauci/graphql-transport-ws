@@ -15,18 +15,21 @@ export class ServerSenderImpl extends SenderImpl implements ServerSender {
   }
 
   connectionArc(payload?: ConnectionAckMessage["payload"]): void {
-    safeSend(this.socket, ServerMessenger.connectionArc(payload));
+    safeSend(
+      this.socket,
+      JSON.stringify(ServerMessenger.connectionArc(payload)),
+    );
   }
 
   next(
     id: NextMessage["id"],
     payload: NextMessage["payload"],
   ): void {
-    safeSend(this.socket, ServerMessenger.next(id, payload));
+    safeSend(this.socket, JSON.stringify(ServerMessenger.next(id, payload)));
   }
 
   error(id: ErrorMessage["id"], payload: ErrorMessage["payload"]): void {
-    safeSend(this.socket, ServerMessenger.error(id, payload));
+    safeSend(this.socket, JSON.stringify(ServerMessenger.error(id, payload)));
   }
 }
 

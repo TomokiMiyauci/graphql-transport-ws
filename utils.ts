@@ -1,23 +1,49 @@
-import { isPlainObject } from "./deps.ts";
+import { safeSync } from "./deps.ts";
 import { PROTOCOL } from "./constants.ts";
+
+type Result =
+  | { sendable: false }
+  | { sendable: true; sended: true }
+  | { sendable: true; sended: false; dispose: () => void };
+
+export type Dispose = () => void;
 
 export function safeSend(
   socket: WebSocket,
-  data:
-    | string
-    | ArrayBufferLike
-    | Blob
-    | ArrayBufferView
-    // deno-lint-ignore no-explicit-any
-    | Record<PropertyKey, any>,
-) {
-  if (socket.readyState === socket.OPEN) {
-    const _data = isPlainObject(data) ? JSON.stringify(data) : data;
-    try {
-      socket.send(_data);
-    } catch {
-      // noop
+  data: string | ArrayBufferLike | Blob | ArrayBufferView,
+): Result {
+  function openHandler(): void {
+    safeSync(() => socket.send(data));
+  }
+
+  const readyState = socket.readyState;
+
+  switch (readyState) {
+    case socket.CONNECTING: {
+      socket.addEventListener("open", openHandler, { once: true });
+      const dispose = (): void => {
+        socket.removeEventListener("open", openHandler);
+      };
+
+      socket.addEventListener("close", dispose, { once: true });
+
+      return { sendable: true, sended: false, dispose };
     }
+    case socket.OPEN: {
+      safeSync(() => socket.send(data));
+
+      return { sendable: true, sended: true };
+    }
+
+    default: {
+      return { sendable: false };
+    }
+  }
+}
+
+export function getDispose(result: Result): undefined | (() => void) {
+  if (result.sendable && !result.sended) {
+    return result.dispose;
   }
 }
 
