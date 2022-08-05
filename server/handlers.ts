@@ -5,7 +5,7 @@ import {
   SocketHandler,
 } from "../types.ts";
 import { safeSend } from "../utils.ts";
-import { PrivateStatus } from "../status.ts";
+import { PRIVATE_STATUS_TEXT, PrivateStatus } from "../status.ts";
 import {
   DocumentNode,
   execute,
@@ -100,6 +100,14 @@ export function createMessageHandler(
 
       case MessageType.Subscribe: {
         const { id, payload } = message;
+
+        if (idMap.has(id)) {
+          socket.close(
+            PrivateStatus.SubscriberAlreadyExists,
+            PRIVATE_STATUS_TEXT[PrivateStatus.SubscriberAlreadyExists](id),
+          );
+          break;
+        }
 
         const [documentNode, error] = safeSync<DocumentNode, GraphQLError>(
           () => document ?? parse(payload.query),
