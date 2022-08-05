@@ -35,38 +35,45 @@ export function createMessageHandler(
         `Invalid message received. ${error.message}`,
       );
     }
+
+    const deserializedMessageEvent = new MessageEvent(ev.type, {
+      ...ev,
+      data: message,
+    });
+
     switch (message.type) {
       case MessageType.Ping: {
         safeSend(
           socket,
           ClientMessenger.pong(),
         );
-        await onPing?.(ev);
+
+        await onPing?.(deserializedMessageEvent);
         break;
       }
 
       case MessageType.Pong: {
-        onPong?.(ev);
+        onPong?.(deserializedMessageEvent);
         break;
       }
 
       case MessageType.ConnectionAck: {
-        onConnectionArc?.(ev);
+        onConnectionArc?.(deserializedMessageEvent);
         break;
       }
 
       case MessageType.Next: {
-        onNext?.(ev);
+        onNext?.(deserializedMessageEvent);
         break;
       }
 
       case MessageType.Error: {
-        onError?.(ev);
+        onError?.(deserializedMessageEvent);
         break;
       }
 
       case MessageType.Complete: {
-        onComplete?.(ev);
+        onComplete?.(deserializedMessageEvent);
       }
     }
   };
