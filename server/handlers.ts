@@ -140,6 +140,13 @@ export function createMessageHandler(
       }
 
       case MessageType.Subscribe: {
+        if (!hasConnected) {
+          socket.close(
+            PrivateStatus.Unauthorized,
+            PRIVATE_STATUS_TEXT[PrivateStatus.Unauthorized],
+          );
+          break;
+        }
         const { id, payload } = message;
 
         if (idMap.has(id)) {
@@ -160,8 +167,12 @@ export function createMessageHandler(
         }
 
         const validationResult = validate(schema, documentNode);
+
         if (validationResult.length) {
-          const msg = ServerMessenger.error(id, validationResult);
+          const msg = ServerMessenger.error(
+            id,
+            validationResult.map(toJSON),
+          );
           safeSend(socket, msg);
           break;
         }
@@ -205,7 +216,10 @@ export function createMessageHandler(
           }
         } else {
           const msg = isRequestError(executionResult)
-            ? ServerMessenger.error(id, executionResult.errors)
+            ? ServerMessenger.error(
+              id,
+              executionResult.errors.map(toJSON),
+            )
             : ServerMessenger.next(id, executionResult);
 
           safeSend(socket, msg);
@@ -295,4 +309,11 @@ function setClearableTimeout(
   return () => {
     clearTimeout(id);
   };
+}
+
+// deno-lint-ignore no-explicit-any
+function toJSON<T extends { toJSON: (...args: any) => any }>(
+  value: T,
+): ReturnType<T["toJSON"]> {
+  return value.toJSON();
 }

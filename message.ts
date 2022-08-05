@@ -1,7 +1,8 @@
 import {
   ExecutionResult,
-  GraphQLError,
+  GraphQLFormattedError,
   GraphQLParameters,
+  ObjMap,
   PartialBy,
 } from "./deps.ts";
 import MessageType from "./message_type.ts";
@@ -47,14 +48,17 @@ export interface SubscribeMessage extends BaseMessage, WithId {
   payload: Readonly<PartialGraphQLParameters>;
 }
 
-export interface NextMessage extends BaseMessage, WithId {
+export interface NextMessage<
+  TData = ObjMap<unknown>,
+  TExtensions = ObjMap<unknown>,
+> extends BaseMessage, WithId {
   type: MessageType.Next;
-  payload: ExecutionResult;
+  payload: ExecutionResult<TData, TExtensions>;
 }
 
 export interface ErrorMessage extends BaseMessage, WithId {
   type: MessageType.Error;
-  payload: readonly GraphQLError[];
+  payload: GraphQLFormattedError[];
 }
 
 export interface CompleteMessage extends BaseMessage, WithId {

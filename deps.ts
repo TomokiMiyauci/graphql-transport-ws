@@ -11,16 +11,19 @@ export {
   type ExecutionResult,
   getOperationAST,
   GraphQLError,
+  type GraphQLFormattedError,
   GraphQLSchema,
   OperationTypeNode,
   parse,
   subscribe,
   validate,
 } from "https://esm.sh/graphql@16.5.0";
+export { type ObjMap } from "https://esm.sh/v89/graphql@16.5.0/jsutils/ObjMap";
 export {
   type GraphQLParameters,
   parseGraphQLParameters,
 } from "https://deno.land/x/graphql_http@1.0.0-beta.17/mod.ts";
+import { GraphQLParameters } from "https://deno.land/x/graphql_http@1.0.0-beta.17/mod.ts";
 import { type ExecutionResult } from "https://esm.sh/graphql@16.5.0";
 // deno-lint-ignore no-explicit-any
 export function has<T extends Record<any, any>, K extends string>(
@@ -54,3 +57,8 @@ export function safeSync<R, E>(
     return [, er];
   }
 }
+
+export type GraphQLRequestParameters = PartialBy<
+  GraphQLParameters,
+  "variableValues" | "operationName" | "extensions"
+>;
