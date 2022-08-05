@@ -1,3 +1,12 @@
+# [1.0.0-beta.5](https://github.com/TomokiMiyauci/graphql-transport-ws/compare/1.0.0-beta.4...1.0.0-beta.5) (2022-08-05)
+
+
+### Features
+
+* **client:** add graphql-transport-ws client ([cb368c9](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/cb368c938a6a2f48410b9b570cef27ac105ec54d))
+* **client:** add validation for ErrorMessage ([c925c4a](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/c925c4a9854e08a75f9d37077dec18ad938d36e5))
+* **server:** add closing socket on subscribe before connect ([fcd2541](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/fcd25418e9b9947e60596a831d65bc5057f580e0))
+
 # [1.0.0-beta.4](https://github.com/TomokiMiyauci/graphql-transport-ws/compare/1.0.0-beta.3...1.0.0-beta.4) (2022-08-05)
 
 
