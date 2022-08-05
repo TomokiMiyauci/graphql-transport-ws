@@ -44,7 +44,7 @@ type MessageEventHandlers = {
 
 export type ClearableMessageHandler = (
   ev: MessageEvent,
-) => Promise<(() => void) | undefined>;
+) => Promise<undefined | (() => Promise<void>)>;
 
 export type Params = { socket: WebSocket } & RequiredExecutionArgs;
 export type Options = MessageEventHandlers & PartialExecutionArgs & {
@@ -229,8 +229,13 @@ export function createMessageHandler(
       }
     }
 
-    return () => {
+    return async () => {
       clear();
+
+      for (const [id, asyncGen] of idMap) {
+        await asyncGen.return(undefined);
+        idMap.delete(id);
+      }
     };
   };
 }
@@ -258,6 +263,14 @@ export function createSocketHandler(
 ): SocketHandler {
   return (socket) => {
     const openHandler = createOpenHandler(socket);
+
+    async function messageHandlerWithClear(ev: MessageEvent): Promise<void> {
+      const clear = await messageHandler(ev);
+
+      socket.addEventListener("close", async () => {
+        await clear?.();
+      }, { once: true });
+    }
     socket.addEventListener("open", openHandler, { once: true });
 
     const messageHandler = createMessageHandler({
@@ -265,11 +278,11 @@ export function createSocketHandler(
       schema,
     }, options);
 
-    socket.addEventListener("message", messageHandler);
+    socket.addEventListener("message", messageHandlerWithClear);
 
     socket.addEventListener("close", () => {
       socket.removeEventListener("open", openHandler);
-      socket.removeEventListener("message", messageHandler);
+      socket.removeEventListener("message", messageHandlerWithClear);
     }, { once: true });
   };
 }
