@@ -99,30 +99,33 @@ export function createMessageHandler(
       }
 
       case MessageType.Subscribe: {
-        const { payload } = message;
+        const { id, payload } = message;
 
         const [documentNode, error] = safeSync<DocumentNode, GraphQLError>(
           () => document ?? parse(payload.query),
         );
         if (!documentNode) {
-          const msg = ServerMessenger.error(message.id, [error]);
-          return safeSend(socket, msg);
+          const msg = ServerMessenger.error(id, [error]);
+          safeSend(socket, msg);
+          break;
         }
 
         const validationResult = validate(schema, documentNode);
         if (validationResult.length) {
-          const msg = ServerMessenger.error(message.id, validationResult);
-          return safeSend(socket, msg);
+          const msg = ServerMessenger.error(id, validationResult);
+          safeSend(socket, msg);
+          break;
         }
 
         const operationAST = getOperationAST(documentNode);
 
         if (!operationAST) {
-          const msg = ServerMessenger.error(message.id, [
+          const msg = ServerMessenger.error(id, [
             new GraphQLError("Unable to identify operation"),
           ]);
 
-          return safeSend(socket, msg);
+          safeSend(socket, msg);
+          break;
         }
 
         const executor = getExecutor(operationAST.operation);
@@ -145,31 +148,32 @@ export function createMessageHandler(
         await onSubscribe?.(ev);
 
         if (isAsyncIterable(executionResult)) {
-          idMap.set(message.id, executionResult);
+          idMap.set(id, executionResult);
 
           for await (const result of executionResult) {
-            const msg = ServerMessenger.next(message.id, result);
+            const msg = ServerMessenger.next(id, result);
             safeSend(socket, msg);
           }
         } else {
           const msg = isRequestError(executionResult)
-            ? ServerMessenger.error(message.id, executionResult.errors)
-            : ServerMessenger.next(message.id, executionResult);
+            ? ServerMessenger.error(id, executionResult.errors)
+            : ServerMessenger.next(id, executionResult);
 
           safeSend(socket, msg);
         }
 
-        const msg = ServerMessenger.complete(message.id);
+        const msg = ServerMessenger.complete(id);
         safeSend(socket, msg);
-        idMap.delete(message.id);
+        idMap.delete(id);
         break;
       }
 
       case MessageType.Complete: {
+        const { id } = message;
         // Cancel subscription iteration when complete message receive.
-        const asyncGen = idMap.get(message.id);
+        const asyncGen = idMap.get(id);
         await asyncGen?.return(undefined);
-        idMap.delete(message.id);
+        idMap.delete(id);
 
         await onComplete?.(ev);
         break;
