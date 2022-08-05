@@ -62,6 +62,8 @@ export function createMessageHandler(
     variableValues,
   }: Readonly<Partial<Options>> = {},
 ): MessageHandler {
+  const idMap = new Map<string, AsyncGenerator>();
+
   return async (ev) => {
     const [message, error] = parseMessage(ev.data);
 
@@ -140,7 +142,11 @@ export function createMessageHandler(
 
         const executionResult = await executor(executionArgs);
 
+        await onSubscribe?.(ev);
+
         if (isAsyncIterable(executionResult)) {
+          idMap.set(message.id, executionResult);
+
           for await (const result of executionResult) {
             const msg = ServerMessenger.next(message.id, result);
             safeSend(socket, msg);
@@ -155,11 +161,16 @@ export function createMessageHandler(
 
         const msg = ServerMessenger.complete(message.id);
         safeSend(socket, msg);
-        await onSubscribe?.(ev);
+        idMap.delete(message.id);
         break;
       }
 
       case MessageType.Complete: {
+        // Cancel subscription iteration when complete message receive.
+        const asyncGen = idMap.get(message.id);
+        await asyncGen?.return(undefined);
+        idMap.delete(message.id);
+
         await onComplete?.(ev);
         break;
       }
