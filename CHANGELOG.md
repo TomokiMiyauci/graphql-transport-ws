@@ -1,3 +1,16 @@
+# [1.0.0-beta.3](https://github.com/TomokiMiyauci/graphql-transport-ws/compare/1.0.0-beta.2...1.0.0-beta.3) (2022-08-05)
+
+
+### Features
+
+* **server:** add `connectionInitWaitTimeout` as args ([27da2a2](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/27da2a2e047ad45e2d90acb4f34fc2fdf29141c5))
+* **server:** add cancel subscription iteration when complete message receive ([89f1d59](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/89f1d59a6c6f74c2b4f51ffea6c25fa8a39ef6ee))
+* **server:** add clean up async generator process ([143b418](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/143b41848a2aeebf5debd56d98eb971606055592))
+* **server:** add closing connection when the same id connection already exists ([f5cdd95](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/f5cdd955b1fa6857f581fbfefb077ca8036a2588))
+* **server:** add closing socket when connection does not establish between specify time ([6461162](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/646116273147ba254c21f0040f323acdfd63fd1f))
+* **server:** message handler return as clearable function ([6b859c1](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/6b859c1db018bb8777af3dcaf7548747621dae14))
+* **status.ts:** add status text definition ([dc91107](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/dc91107891aef55aeda39dcaf7e517a9e5fb1f68))
+
 # [1.0.0-beta.2](https://github.com/TomokiMiyauci/graphql-transport-ws/compare/1.0.0-beta.1...1.0.0-beta.2) (2022-08-04)
 
 
