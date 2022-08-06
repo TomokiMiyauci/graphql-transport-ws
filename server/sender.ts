@@ -3,7 +3,7 @@ import { ConnectionAckMessage, ErrorMessage, NextMessage } from "../message.ts";
 import { safeSend } from "../utils.ts";
 import { ServerMessenger } from "./message.ts";
 
-interface ServerSender extends Sender {
+export interface ServerSender extends Sender {
   connectionArc(payload?: ConnectionAckMessage["payload"]): void;
   next(id: NextMessage["id"], payload: NextMessage["payload"]): void;
   error(id: ErrorMessage["id"], payload: ErrorMessage["payload"]): void;
