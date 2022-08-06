@@ -4,7 +4,7 @@ import {
   RequiredExecutionArgs,
   SocketHandler,
 } from "../types.ts";
-import { safeSend } from "../utils.ts";
+import { Dispose, safeSend } from "../utils.ts";
 import { PRIVATE_STATUS_TEXT, PrivateStatus } from "../status.ts";
 import {
   DocumentNode,
@@ -64,6 +64,7 @@ export type Options = MessageEventHandlers & PartialExecutionArgs & {
 
 export function createMessageHandler(
   { socket, schema }: Readonly<Params>,
+  ctx: SocketContext,
   {
     onPing,
     onPong,
@@ -78,11 +79,9 @@ export function createMessageHandler(
     subscribeFieldResolver,
     typeResolver,
     variableValues,
-    connectionInitWaitTimeout = DEFAULT_CONNECTION_TIMEOUT,
   }: Readonly<Partial<Options>> = {},
 ): ClearableMessageHandler {
   const idMap = new Map<string, AsyncGenerator>();
-  let hasConnected = false;
 
   return async (ev) => {
     const [message, error] = parseMessage(ev.data);
@@ -95,19 +94,9 @@ export function createMessageHandler(
       return;
     }
 
-    // Close socket if the connection has not been initialized after the specified wait timeout.
-    const clear = setClearableTimeout(() => {
-      if (!hasConnected) {
-        socket.close(
-          PrivateStatus.ConnectionInitializationTimeout,
-          PRIVATE_STATUS_TEXT[PrivateStatus.ConnectionInitializationTimeout],
-        );
-      }
-    }, connectionInitWaitTimeout);
-
     switch (message.type) {
       case MessageType.ConnectionInit: {
-        if (hasConnected) {
+        if (ctx.authorized) {
           socket.close(
             PrivateStatus.TooManyInitializationRequests,
             PRIVATE_STATUS_TEXT[PrivateStatus.TooManyInitializationRequests],
@@ -115,7 +104,7 @@ export function createMessageHandler(
           break;
         }
 
-        hasConnected = true;
+        ctx.authorized = true;
 
         safeSend(
           socket,
@@ -140,7 +129,7 @@ export function createMessageHandler(
       }
 
       case MessageType.Subscribe: {
-        if (!hasConnected) {
+        if (!ctx.authorized) {
           socket.close(
             PrivateStatus.Unauthorized,
             PRIVATE_STATUS_TEXT[PrivateStatus.Unauthorized],
@@ -211,8 +200,10 @@ export function createMessageHandler(
           idMap.set(id, executionResult);
 
           for await (const result of executionResult) {
-            const msg = ServerMessenger.next(id, result);
-            safeSend(socket, JSON.stringify(msg));
+            if (idMap.has(id)) {
+              const msg = ServerMessenger.next(id, result);
+              safeSend(socket, JSON.stringify(msg));
+            }
           }
         } else {
           const msg = isRequestError(executionResult)
@@ -225,9 +216,12 @@ export function createMessageHandler(
           safeSend(socket, JSON.stringify(msg));
         }
 
-        const msg = ServerMessenger.complete(id);
-        safeSend(socket, JSON.stringify(msg));
+        const has = idMap.has(id);
         idMap.delete(id);
+        if (has) {
+          const msg = ServerMessenger.complete(id);
+          safeSend(socket, JSON.stringify(msg));
+        }
         break;
       }
 
@@ -235,8 +229,8 @@ export function createMessageHandler(
         const { id } = message;
         // Cancel subscription iteration when complete message receive.
         const asyncGen = idMap.get(id);
-        await asyncGen?.return(undefined);
         idMap.delete(id);
+        await asyncGen?.return(undefined);
 
         await onComplete?.(ev);
         break;
@@ -244,12 +238,12 @@ export function createMessageHandler(
     }
 
     return async () => {
-      clear();
-
-      for (const [id, asyncGen] of idMap) {
-        await asyncGen.return(undefined);
-        idMap.delete(id);
-      }
+      await Promise.all(
+        Array.from(idMap).map(async ([id, asyncGen]) => {
+          idMap.delete(id);
+          await asyncGen.return(undefined);
+        }),
+      );
     };
   };
 }
@@ -260,23 +254,66 @@ function getExecutor(
   return operationTypeNode === "subscription" ? subscribe : execute;
 }
 
-function createOpenHandler(socket: WebSocket): EventListener {
-  return (): void => {
+type CreateOpenHandlerOptions = {
+  /**
+   * The amount of time for which the server will wait
+   * for `ConnectionInit` message.
+   *
+   * If the wait timeout has passed and the client
+   * has not sent the `connection_init` message,
+   * the server will terminate the socket by
+   * dispatching a close event `4408: Connection initialization timeout`
+   *
+   * @default 3_000
+   */
+  connectionInitWaitTimeout?: number;
+};
+
+function createOpenHandler(
+  socket: WebSocket,
+  ctx: SocketContext,
+  { connectionInitWaitTimeout = DEFAULT_CONNECTION_TIMEOUT }: Readonly<
+    Partial<
+      CreateOpenHandlerOptions
+    >
+  > = {},
+): () => Dispose {
+  return () => {
     if (socket.protocol !== PROTOCOL) {
       socket.close(
         PrivateStatus.SubprotocolNotAcceptable,
         "Sub protocol is not acceptable",
       );
     }
+
+    // Close socket if the connection has not been initialized after the specified wait timeout.
+    const clear = setClearableTimeout(() => {
+      if (!ctx.authorized) {
+        socket.close(
+          PrivateStatus.ConnectionInitializationTimeout,
+          PRIVATE_STATUS_TEXT[PrivateStatus.ConnectionInitializationTimeout],
+        );
+      }
+    }, connectionInitWaitTimeout);
+
+    return clear;
   };
 }
+
+type SocketContext = {
+  authorized: boolean;
+};
 
 export function createSocketHandler(
   schema: GraphQLSchema,
   options: Readonly<Partial<Options>> = {},
 ): SocketHandler {
   return (socket) => {
-    const openHandler = createOpenHandler(socket);
+    const ctx: SocketContext = { authorized: false };
+
+    const openHandler = createOpenHandler(socket, ctx, {
+      connectionInitWaitTimeout: options.connectionInitWaitTimeout,
+    });
 
     async function messageHandlerWithClear(ev: MessageEvent): Promise<void> {
       const clear = await messageHandler(ev);
@@ -287,10 +324,11 @@ export function createSocketHandler(
     }
     socket.addEventListener("open", openHandler, { once: true });
 
-    const messageHandler = createMessageHandler({
-      socket,
-      schema,
-    }, options);
+    const messageHandler = createMessageHandler(
+      { socket, schema },
+      ctx,
+      options,
+    );
 
     socket.addEventListener("message", messageHandlerWithClear);
 
