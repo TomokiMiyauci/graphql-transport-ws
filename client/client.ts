@@ -1,5 +1,9 @@
 import { ClientSender, createSender } from "./sender.ts";
-import { createSocketHandler } from "./handlers.ts";
+import {
+  createMessageHandler,
+  createSocketHandler,
+  GraphQLEventMap,
+} from "./handlers.ts";
 import {
   ExecutionResult,
   GraphQLFormattedError,
@@ -17,7 +21,13 @@ type CapturedCallbacks<TData = ObjMap<unknown>, TExtensions = ObjMap<unknown>> =
     onCompleted(): void;
   };
 
-export interface Client {
+export interface GraphQLClient extends EventTarget {
+  ping(): void;
+
+  pong(): void;
+
+  connectionInit(): void;
+
   subscribe(
     graphqlParams: Readonly<GraphQLRequestParameters>,
     callbacks?: Partial<CapturedCallbacks>,
@@ -26,19 +36,76 @@ export interface Client {
   complete(id: string): void;
 
   socket: WebSocket;
+
+  addEventListener<K extends keyof GraphQLEventMap>(
+    type: K,
+    // deno-lint-ignore no-explicit-any
+    listener: (this: GraphQLClient, ev: GraphQLEventMap[K]) => any,
+    options?: boolean | AddEventListenerOptions,
+  ): void;
+  addEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | AddEventListenerOptions,
+  ): void;
 }
 
-export class ClientImpl implements Client {
+export class ClientImpl extends EventTarget implements GraphQLClient {
   public socket: WebSocket;
   #sender: ClientSender;
 
   /** Memory completed subscription ids. */
   #idMap: ExpandedMap<string, (() => void) | undefined>;
   constructor(url: string | URL) {
+    super();
+
     this.socket = createWebSocket(url);
     this.#sender = createSender(this.socket);
     this.#idMap = new ExpandedMap<string, (() => void) | undefined>();
 
+    const messageHandler = createMessageHandler({
+      onComplete: (ev) => {
+        const customEvent = new MessageEvent("complete", ev);
+        this.dispatchEvent(customEvent);
+      },
+      onConnectionArc: (ev) => {
+        const customEvent = new MessageEvent("connection_arc", ev);
+        this.dispatchEvent(customEvent);
+      },
+      onPing: (ev) => {
+        const customEvent = new MessageEvent("ping", ev);
+        this.dispatchEvent(customEvent);
+      },
+      onPong: (ev) => {
+        const customEvent = new MessageEvent("pong", ev);
+        this.dispatchEvent(customEvent);
+      },
+      onNext: (ev) => {
+        const customEvent = new MessageEvent("next", ev);
+        this.dispatchEvent(customEvent);
+      },
+      onError: (ev) => {
+        const customEvent = new MessageEvent("error", ev);
+        this.dispatchEvent(customEvent);
+      },
+    });
+
+    this.socket.addEventListener("message", (ev) => {
+      messageHandler(ev);
+    });
+
+    this.#sender.connectionInit();
+  }
+
+  ping(): void {
+    this.#sender.ping();
+  }
+
+  pong(): void {
+    this.#sender.pong();
+  }
+
+  connectionInit() {
     this.#sender.connectionInit();
   }
 
@@ -98,7 +165,7 @@ export class ClientImpl implements Client {
   }
 }
 
-export function createClient(url: string | URL): Client {
+export function createClient(url: string | URL): GraphQLClient {
   return new ClientImpl(url);
 }
 
