@@ -13,9 +13,8 @@ import MessageType from "../message_type.ts";
 import { GraphQLEventMap } from "../client.ts";
 
 export interface GraphQLClientEventMap extends GraphQLEventMap {
-  connectionArc: MessageEvent<ConnectionAckMessage>;
+  connectionarc: MessageEvent<ConnectionAckMessage>;
   next: MessageEvent<NextMessage>;
-
   error: MessageEvent<ErrorMessage>;
 }
 

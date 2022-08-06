@@ -3,7 +3,6 @@
 import { CompleteMessage, PingMessage, PongMessage } from "./message.ts";
 import { Sender, SenderImpl } from "./sender.ts";
 import { MessageHandler } from "./types.ts";
-import { createMessageHandler } from "./client/handlers.ts";
 
 export interface GraphQLEventMap {
   ping: MessageEvent<PingMessage>;
@@ -69,37 +68,14 @@ export abstract class GraphQLImpl implements GraphQL {
 
   #eventTarget: EventTarget;
 
-  protected messageHandler: MessageHandler;
-
   constructor(
     public socket: WebSocket,
-    { disablePong = false }: Readonly<Partial<GraphQLOptions>> = {},
   ) {
     this.#eventTarget = new EventTarget();
     this.#sender = new SenderImpl(socket);
-
-    this.messageHandler = createMessageHandler({
-      onPing: (ev) => {
-        if (!disablePong) {
-          this.#sender.pong();
-        }
-        const event = new MessageEvent("ping", ev);
-        this.#eventTarget.dispatchEvent(event);
-      },
-      onPong: (ev) => {
-        const event = new MessageEvent("pong", ev);
-        this.#eventTarget.dispatchEvent(event);
-      },
-      onComplete: (ev) => {
-        const event = new MessageEvent("complete", ev);
-        this.#eventTarget.dispatchEvent(event);
-      },
-    });
-
-    // if (!disablePong) {
-    //   this.socket.addEventListener("message", this.messageHandler);
-    // }
   }
+
+  abstract messageHandler: MessageHandler;
 
   ping(): void {
     this.#sender.ping();

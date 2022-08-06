@@ -13,7 +13,11 @@ import {
   GraphQLArgs,
   SocketContext,
 } from "./handlers.ts";
-import { PartialExecutionArgs, RequiredExecutionArgs } from "../types.ts";
+import {
+  MessageHandler,
+  PartialExecutionArgs,
+  RequiredExecutionArgs,
+} from "../types.ts";
 import { ExecutionResult, GraphQLFormattedError } from "../deps.ts";
 
 const UNKNOWN = "$$unknown";
@@ -54,37 +58,36 @@ class ClientImpl extends GraphQLImpl implements Client {
   #sender: ServerSender;
   constructor(socket: WebSocket) {
     super(socket);
-
-    const messageHandler = createMessageCallback({
-      onComplete: (ev) => {
-        const event = new MessageEvent("complete", ev);
-        this.dispatchEvent(event);
-      },
-      onPing: (ev) => {
-        const event = new MessageEvent("ping", ev);
-        this.dispatchEvent(event);
-      },
-      onPong: (ev) => {
-        const event = new MessageEvent("pong", ev);
-        this.dispatchEvent(event);
-      },
-      onConnectionInit: (ev) => {
-        const event = new MessageEvent("connectioninit", ev);
-        this.dispatchEvent(event);
-      },
-      onSubscribe: (ev) => {
-        const event = new MessageEvent("subscribe", ev);
-        this.dispatchEvent(event);
-      },
-      onUnknown: (ev) => {
-        const event = new MessageEvent(UNKNOWN, ev);
-        this.dispatchEvent(event);
-      },
-    });
-
-    this.messageHandler = messageHandler;
     this.#sender = createSender(socket);
   }
+
+  messageHandler: MessageHandler<any> = createMessageCallback({
+    onComplete: (ev) => {
+      const event = new MessageEvent("complete", ev);
+      this.dispatchEvent(event);
+    },
+    onPing: (ev) => {
+      const event = new MessageEvent("ping", ev);
+      console.log(333);
+      this.dispatchEvent(event);
+    },
+    onPong: (ev) => {
+      const event = new MessageEvent("pong", ev);
+      this.dispatchEvent(event);
+    },
+    onConnectionInit: (ev) => {
+      const event = new MessageEvent("connectioninit", ev);
+      this.dispatchEvent(event);
+    },
+    onSubscribe: (ev) => {
+      const event = new MessageEvent("subscribe", ev);
+      this.dispatchEvent(event);
+    },
+    onUnknown: (ev) => {
+      const event = new MessageEvent(UNKNOWN, ev);
+      this.dispatchEvent(event);
+    },
+  });
   connectionArc(): void {
     this.#sender.connectionArc();
   }

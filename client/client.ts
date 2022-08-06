@@ -13,6 +13,8 @@ import {
 } from "../deps.ts";
 import { createWebSocket, Disposable, Dispose } from "../utils.ts";
 import { GraphQL, GraphQLImpl, GraphQLOptions } from "../client.ts";
+import { MessageHandler } from "../types.ts";
+import { createPingHandler } from "../handlers.ts";
 
 type CapturedCallbacks<TData = ObjMap<unknown>, TExtensions = ObjMap<unknown>> =
   {
@@ -73,61 +75,48 @@ export class ClientImpl extends GraphQLImpl {
   #sender: ClientSender;
 
   /** Memory completed subscription ids. */
-  #idMap: ExpandedMap<string, (() => void) | undefined>;
+  #idMap: ExpandedMap<string, (() => void) | undefined> = new ExpandedMap<
+    string,
+    (() => void) | undefined
+  >();
 
   constructor(
     socket: WebSocket,
-    { disableConnectionInit, disablePong }: Readonly<
-      Partial<GraphQLClientOptions>
-    > = {},
   ) {
-    super(socket, { disablePong });
-
+    super(socket);
     this.#sender = createSender(socket);
-    this.#idMap = new ExpandedMap<string, (() => void) | undefined>();
-
-    this.messageHandler = createMessageHandler({
-      onComplete: (ev) => {
-        const customEvent = new MessageEvent("complete", ev);
-        this.dispatchEvent(customEvent);
-      },
-      onConnectionArc: (ev) => {
-        const customEvent = new MessageEvent("connection_arc", ev);
-        this.dispatchEvent(customEvent);
-      },
-      onPing: (ev) => {
-        if (!disablePong) {
-          this.pong();
-        }
-        const customEvent = new MessageEvent("ping", ev);
-        this.dispatchEvent(customEvent);
-      },
-      onPong: (ev) => {
-        const customEvent = new MessageEvent("pong", ev);
-        this.dispatchEvent(customEvent);
-      },
-      onNext: (ev) => {
-        if (this.#isAlive(ev.data.id)) {
-          const customEvent = new MessageEvent("next", ev);
-          this.dispatchEvent(customEvent);
-        }
-      },
-      onError: (ev) => {
-        if (this.#isAlive(ev.data.id)) {
-          const customEvent = new MessageEvent("error", ev);
-          this.dispatchEvent(customEvent);
-        }
-      },
-    });
-
-    if (!disableConnectionInit) {
-      this.#sender.connectionInit();
-    }
-
-    if (!disablePong) {
-      this.socket.addEventListener("message", this.messageHandler);
-    }
   }
+
+  messageHandler: MessageHandler<any> = createMessageHandler({
+    onComplete: (ev) => {
+      const customEvent = new MessageEvent("complete", ev);
+      this.dispatchEvent(customEvent);
+    },
+    onConnectionArc: (ev) => {
+      const customEvent = new MessageEvent("connectionarc", ev);
+      this.dispatchEvent(customEvent);
+    },
+    onPing: (ev) => {
+      const customEvent = new MessageEvent("ping", ev);
+      this.dispatchEvent(customEvent);
+    },
+    onPong: (ev) => {
+      const customEvent = new MessageEvent("pong", ev);
+      this.dispatchEvent(customEvent);
+    },
+    onNext: (ev) => {
+      if (this.#isAlive(ev.data.id)) {
+        const customEvent = new MessageEvent("next", ev);
+        this.dispatchEvent(customEvent);
+      }
+    },
+    onError: (ev) => {
+      if (this.#isAlive(ev.data.id)) {
+        const customEvent = new MessageEvent("error", ev);
+        this.dispatchEvent(customEvent);
+      }
+    },
+  });
 
   connectionInit() {
     this.#sender.connectionInit();
@@ -194,10 +183,24 @@ export class ClientImpl extends GraphQLImpl {
 
 export function createClient(
   url: string | URL,
-  options: Readonly<Partial<GraphQLClientOptions>> = {},
+  { disableConnectionInit }: Readonly<Partial<GraphQLClientOptions>> = {},
 ): GraphQLClient {
   const socket = createWebSocket(url);
-  return new ClientImpl(socket, options);
+  const client = new ClientImpl(socket) as GraphQLClient;
+
+  const pingHandler = createPingHandler(client.socket);
+
+  client.addEventListener("ping", pingHandler);
+
+  if (!disableConnectionInit) {
+    client.connectionInit();
+  }
+
+  client.socket.addEventListener("close", () => {
+    client.removeEventListener("ping", pingHandler);
+  }, { once: true });
+
+  return client;
 }
 
 class ExpandedMap<K, V> extends Map<K, V> {
