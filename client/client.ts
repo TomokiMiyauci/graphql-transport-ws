@@ -1,8 +1,9 @@
+// deno-lint-ignore-file no-explicit-any
 import { ClientSender, createSender } from "./sender.ts";
 import {
   createMessageHandler,
   createSocketHandler,
-  GraphQLEventMap,
+  GraphQLClientEventMap,
 } from "./handlers.ts";
 import {
   ExecutionResult,
@@ -11,6 +12,7 @@ import {
   ObjMap,
 } from "../deps.ts";
 import { createWebSocket, Disposable, Dispose } from "../utils.ts";
+import { GraphQL, GraphQLImpl, GraphQLOptions } from "../client.ts";
 
 type CapturedCallbacks<TData = ObjMap<unknown>, TExtensions = ObjMap<unknown>> =
   {
@@ -21,11 +23,16 @@ type CapturedCallbacks<TData = ObjMap<unknown>, TExtensions = ObjMap<unknown>> =
     onCompleted(): void;
   };
 
-export interface GraphQLClient extends EventTarget {
-  ping(): void;
+interface GraphQLClientOptions extends GraphQLOptions {
+  disableConnectionInit: boolean;
+}
 
-  pong(): void;
-
+export interface GraphQLClient extends GraphQL {
+  /** Send `ConnectionInit` message.
+   * If the connection is not yet open, sending the message is delayed.
+   * If the connection is closed or about to be closed, sending message is discarded.
+   * @see https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#connectioninit
+   */
   connectionInit(): void;
 
   subscribe(
@@ -33,14 +40,16 @@ export interface GraphQLClient extends EventTarget {
     callbacks?: Partial<CapturedCallbacks>,
   ): { id: string } & Disposable;
 
+  /** Send `Complete` message.
+   * If the connection is not yet open, sending the message is delayed.
+   * If the connection is closed or about to be closed, sending message is discarded.
+   * @see https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#complete
+   */
   complete(id: string): void;
 
-  socket: WebSocket;
-
-  addEventListener<K extends keyof GraphQLEventMap>(
+  addEventListener<K extends keyof GraphQLClientEventMap>(
     type: K,
-    // deno-lint-ignore no-explicit-any
-    listener: (this: GraphQLClient, ev: GraphQLEventMap[K]) => any,
+    listener: (this: GraphQLClient, ev: GraphQLClientEventMap[K]) => any,
     options?: boolean | AddEventListenerOptions,
   ): void;
   addEventListener(
@@ -48,22 +57,36 @@ export interface GraphQLClient extends EventTarget {
     listener: EventListenerOrEventListenerObject,
     options?: boolean | AddEventListenerOptions,
   ): void;
+  removeEventListener<K extends keyof GraphQLClientEventMap>(
+    type: K,
+    listener: (this: GraphQLClient, ev: GraphQLClientEventMap[K]) => any,
+    options?: boolean | EventListenerOptions,
+  ): void;
+  removeEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | EventListenerOptions,
+  ): void;
 }
 
-export class ClientImpl extends EventTarget implements GraphQLClient {
-  public socket: WebSocket;
+export class ClientImpl extends GraphQLImpl {
   #sender: ClientSender;
 
   /** Memory completed subscription ids. */
   #idMap: ExpandedMap<string, (() => void) | undefined>;
-  constructor(url: string | URL) {
-    super();
 
-    this.socket = createWebSocket(url);
-    this.#sender = createSender(this.socket);
+  constructor(
+    socket: WebSocket,
+    { disableConnectionInit, disablePong }: Readonly<
+      Partial<GraphQLClientOptions>
+    > = {},
+  ) {
+    super(socket, { disablePong });
+
+    this.#sender = createSender(socket);
     this.#idMap = new ExpandedMap<string, (() => void) | undefined>();
 
-    const messageHandler = createMessageHandler({
+    this.messageHandler = createMessageHandler({
       onComplete: (ev) => {
         const customEvent = new MessageEvent("complete", ev);
         this.dispatchEvent(customEvent);
@@ -73,6 +96,9 @@ export class ClientImpl extends EventTarget implements GraphQLClient {
         this.dispatchEvent(customEvent);
       },
       onPing: (ev) => {
+        if (!disablePong) {
+          this.pong();
+        }
         const customEvent = new MessageEvent("ping", ev);
         this.dispatchEvent(customEvent);
       },
@@ -81,28 +107,26 @@ export class ClientImpl extends EventTarget implements GraphQLClient {
         this.dispatchEvent(customEvent);
       },
       onNext: (ev) => {
-        const customEvent = new MessageEvent("next", ev);
-        this.dispatchEvent(customEvent);
+        if (this.#isAlive(ev.data.id)) {
+          const customEvent = new MessageEvent("next", ev);
+          this.dispatchEvent(customEvent);
+        }
       },
       onError: (ev) => {
-        const customEvent = new MessageEvent("error", ev);
-        this.dispatchEvent(customEvent);
+        if (this.#isAlive(ev.data.id)) {
+          const customEvent = new MessageEvent("error", ev);
+          this.dispatchEvent(customEvent);
+        }
       },
     });
 
-    this.socket.addEventListener("message", (ev) => {
-      messageHandler(ev);
-    });
+    if (!disableConnectionInit) {
+      this.#sender.connectionInit();
+    }
 
-    this.#sender.connectionInit();
-  }
-
-  ping(): void {
-    this.#sender.ping();
-  }
-
-  pong(): void {
-    this.#sender.pong();
+    if (!disablePong) {
+      this.socket.addEventListener("message", this.messageHandler);
+    }
   }
 
   connectionInit() {
@@ -120,13 +144,12 @@ export class ClientImpl extends EventTarget implements GraphQLClient {
     this.#idMap.set(id, onCompleted);
 
     function isReceivable(this: ClientImpl, fromId: string): boolean {
-      return id === fromId && this.#idMap.has(id);
+      return id === fromId && this.#isAlive(id);
     }
 
     const socketHandler = createSocketHandler({
       onNext: ({ data }) => {
         if (onNext && isReceivable.call(this, data.id)) {
-          // deno-lint-ignore no-explicit-any
           onNext(data.payload as any);
         }
       },
@@ -163,10 +186,18 @@ export class ClientImpl extends EventTarget implements GraphQLClient {
       v?.();
     });
   }
+
+  #isAlive(id: string): boolean {
+    return this.#idMap.has(id);
+  }
 }
 
-export function createClient(url: string | URL): GraphQLClient {
-  return new ClientImpl(url);
+export function createClient(
+  url: string | URL,
+  options: Readonly<Partial<GraphQLClientOptions>> = {},
+): GraphQLClient {
+  const socket = createWebSocket(url);
+  return new ClientImpl(socket, options);
 }
 
 class ExpandedMap<K, V> extends Map<K, V> {

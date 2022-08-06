@@ -1,7 +1,6 @@
 import { MessageHandler } from "../types.ts";
-import { PrivateStatus } from "../status.ts";
-import { Dispose, safeSend } from "../utils.ts";
-import { ClientMessenger, parseMessage } from "./message.ts";
+import { Dispose } from "../utils.ts";
+import { parseMessage } from "./message.ts";
 import {
   CompleteMessage,
   ConnectionAckMessage,
@@ -11,6 +10,14 @@ import {
   PongMessage,
 } from "../message.ts";
 import MessageType from "../message_type.ts";
+import { GraphQLEventMap } from "../client.ts";
+
+export interface GraphQLClientEventMap extends GraphQLEventMap {
+  connectionArc: MessageEvent<ConnectionAckMessage>;
+  next: MessageEvent<NextMessage>;
+
+  error: MessageEvent<ErrorMessage>;
+}
 
 type MessageEventHandlers = {
   onPing: MessageHandler<PingMessage>;
@@ -22,18 +29,32 @@ type MessageEventHandlers = {
 };
 
 export function createMessageHandler(
-  { socket }: { socket: WebSocket },
-  { onNext, onComplete, onError, onPing, onPong, onConnectionArc }: Partial<
-    MessageEventHandlers
+  {
+    onComplete,
+    onConnectionArc,
+    onError,
+    onNext,
+    onPing,
+    onPong,
+    onUnknown,
+  }: Partial<
+    (
+      & MessageEventHandlers
+      & {
+        onUnknown: (
+          ev: MessageEvent,
+          ctx: { error: SyntaxError | TypeError },
+        ) => void | Promise<void>;
+      }
+    )
   > = {},
 ): MessageHandler {
   return async (ev) => {
     const [message, error] = parseMessage(ev.data);
+
     if (!message) {
-      return socket.close(
-        PrivateStatus.BadRequest,
-        `Invalid message received. ${error.message}`,
-      );
+      await onUnknown?.(ev, { error });
+      return;
     }
 
     const deserializedMessageEvent = new MessageEvent(ev.type, {
@@ -43,11 +64,6 @@ export function createMessageHandler(
 
     switch (message.type) {
       case MessageType.Ping: {
-        safeSend(
-          socket,
-          JSON.stringify(ClientMessenger.pong()),
-        );
-
         await onPing?.(deserializedMessageEvent);
         break;
       }
@@ -83,7 +99,7 @@ export function createSocketHandler(
   options?: Partial<MessageEventHandlers>,
 ): (socket: WebSocket) => Dispose {
   return (socket) => {
-    const messageHandler = createMessageHandler({ socket }, options);
+    const messageHandler = createMessageHandler(options);
 
     const dispose: Dispose = () => {
       socket.removeEventListener("message", messageHandler);
