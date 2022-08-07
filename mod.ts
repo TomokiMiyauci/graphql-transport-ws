@@ -20,3 +20,4 @@ export {
 } from "./graphql_transport_ws.ts";
 export { type ClientOptions, createClient } from "./client.ts";
 export { createServer, type ServerParams } from "./server.ts";
+export { default as parseMessage } from "./parse.ts";

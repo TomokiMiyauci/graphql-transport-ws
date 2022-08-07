@@ -6,12 +6,18 @@ sub-protocol implementation.
 
 ## Usage
 
+core
+
 - `createGraphQLTransportWs` - Create API that handles sending and receiving
   messages for the `graphql-transport-ws` sub-protocol.
 - `createClient` - Create client-side `graphql-transport-ws` sub-protocol
   compliant API.
 - `createServer` - Create server-side `graphql-transport-ws` sub-protocol
   compliant API.
+
+utils
+
+- `parseMessage` - Parse the value as `graphql-transport-ws` Message data.
 
 ### Ping and Pong
 
@@ -46,6 +52,24 @@ graphqlTransportWs.connectionInit();
 graphqlTransportWs.subscribe({
   query: `subscription { hello }`,
 });
+```
+
+### Parse message
+
+```ts
+import {
+  MessageType,
+  parseMessage,
+} from "https://deno.land/x/graphql_transport_ws@$VERSION/mod.ts";
+import { assertEquals } from "https://deno.land/std@$VERSION/testing/asserts.ts";
+const ev = new MessageEvent("message", {
+  data: JSON.stringify({
+    type: "pong",
+  }),
+});
+const result = parseMessage(ev.data);
+assertEquals(result[0], { "type": MessageType.Pong });
+assertEquals(result[1], undefined);
 ```
 
 ## License

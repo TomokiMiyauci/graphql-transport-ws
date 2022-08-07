@@ -68,27 +68,283 @@ describe("parseMessage", () => {
     });
   });
   describe("[error]", () => {
-    it(`should return error`, () => {
+    it(`should return error when message "id" is not exists`, () => {
       const result = parseMessage(JSON.stringify({
         type: "error",
       }));
       expect(result[0]).toBeFalsy();
       expect(result[1]).toError(
         Error,
-        `Missing property. "id"`,
+        `Missing field. "id"`,
       );
+    });
+    it(`should return error when message "id" is not string`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "error",
+        id: 0,
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Invalid field. "id" must be string.`,
+      );
+    });
+    it(`should return error when message "payload" is not exists`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "error",
+        id: "",
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Missing field. "payload"`,
+      );
+    });
+    it(`should return error when message "payload" is not array object`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "error",
+        id: "",
+        payload: {},
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Invalid field. "payload" must be array object.`,
+      );
+    });
+    it(`should return error when message "payload[number]" is not GraphQLFormattedError`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "error",
+        id: "",
+        payload: [1],
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Invalid data type. Must be plain object.`,
+      );
+    });
+    it(`should return error when message "payload[number].message" is not exists`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "error",
+        id: "",
+        payload: [{}],
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Missing field. "message"`,
+      );
+    });
+    it(`should return error when message "payload[number].message" is not string`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "error",
+        id: "",
+        payload: [{ message: 0 }],
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Invalid field. "message" must be string.`,
+      );
+    });
+    it(`should return error when message "payload[number].locations" is not array`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "error",
+        id: "",
+        payload: [{ message: "", locations: {} }],
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Invalid field. "locations" must be array object.`,
+      );
+    });
+    it(`should return error when message "payload[number].locations[number].line" is not exists`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "error",
+        id: "",
+        payload: [{ message: "", locations: [{}] }],
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Missing field. "line"`,
+      );
+    });
+    it(`should return error when message "payload[number].locations[number].line" is not number`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "error",
+        id: "",
+        payload: [{ message: "", locations: [{ line: "" }] }],
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Invalid field. "line" must be number.`,
+      );
+    });
+    it(`should return error when message "payload[number].locations[number].column" is not exists`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "error",
+        id: "",
+        payload: [{ message: "", locations: [{ line: 0 }] }],
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Missing field. "column"`,
+      );
+    });
+    it(`should return error when message "payload[number].locations[number].column" is not number`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "error",
+        id: "",
+        payload: [{ message: "", locations: [{ line: 0, column: "" }] }],
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Invalid field. "column" must be number.`,
+      );
+    });
+    it(`should return error when message "payload[number].locations[number].column" is not number`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "error",
+        id: "",
+        payload: [{ message: "", locations: [{ line: 0, column: "" }] }],
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Invalid field. "column" must be number.`,
+      );
+    });
+    it(`should return error when message "payload[number].path" is not array`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "error",
+        id: "",
+        payload: [{ message: "", path: {} }],
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Invalid field. "path" must be array object.`,
+      );
+    });
+    it(`should return error when message "payload[number].path[number]" is not string or number`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "error",
+        id: "",
+        payload: [{ message: "", path: [1, 2, "", []] }],
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Invalid field. "path[number]" must be string or number.`,
+      );
+    });
+    it(`should return error when message "payload[number].extensions" is not plain object`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "error",
+        id: "",
+        payload: [{ message: "", extensions: [] }],
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Invalid field. "extensions" must be plain object.`,
+      );
+    });
+    it(`should return data when message is valid`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "error",
+        id: "",
+        payload: [{
+          message: "",
+          locations: [{ line: 0, column: 0 }, { line: 1, column: 1 }],
+          path: [1, 2, "", "a"],
+          extensions: {},
+        }],
+      }));
+      expect(result[0]).toEqual({
+        type: "error",
+        id: "",
+        payload: [
+          {
+            message: "",
+            locations: [{ line: 0, column: 0 }, { line: 1, column: 1 }],
+            path: [1, 2, "", "a"],
+            extensions: {},
+          },
+        ],
+      });
+      expect(result[1]).toBeUndefined();
     });
   });
   describe("[next]", () => {
-    it(`should return error`, () => {
+    it(`should return error when message "id" is not exists`, () => {
       const result = parseMessage(JSON.stringify({
         type: "next",
       }));
       expect(result[0]).toBeFalsy();
       expect(result[1]).toError(
         Error,
-        `Missing property. "id"`,
+        `Missing field. "id"`,
       );
+    });
+    it(`should return error when message "id" is not string`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "next",
+        id: 0,
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Invalid field. "id" must be string.`,
+      );
+    });
+    it(`should return error when message "payload" is not exists`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "next",
+        id: "",
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Missing field. "payload"`,
+      );
+    });
+    it(`should return error when message "payload" is not FormattedExecutionResult`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "next",
+        id: "",
+        payload: {
+          errors: [{}],
+        },
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Missing field. "message"`,
+      );
+    });
+    it(`should return data when message is valid`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "next",
+        id: "",
+        payload: {
+          errors: [{ message: "" }],
+          data: null,
+          extensions: {},
+        },
+      }));
+      expect(result[0]).toEqual({
+        type: "next",
+        id: "",
+        payload: { errors: [{ message: "" }], data: null, extensions: {} },
+      });
+      expect(result[1]).toBeUndefined();
     });
   });
   describe("[ping]", () => {
@@ -193,6 +449,42 @@ describe("parseMessage", () => {
         `Invalid field. "query" must be string.`,
       );
     });
+    it(`should return error when message "payload.operationName" is not string`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "subscribe",
+        id: "",
+        payload: { query: "", operationName: 0 },
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Invalid field. "operationName" must be string or null.`,
+      );
+    });
+    it(`should return error when message "payload.variables" is not plain object`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "subscribe",
+        id: "",
+        payload: { query: "", variables: "" },
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Invalid field. "variables" must be plain object or null`,
+      );
+    });
+    it(`should return error when message "payload.extensions" is not plain object`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "subscribe",
+        id: "",
+        payload: { query: "", extensions: "" },
+      }));
+      expect(result[0]).toBeFalsy();
+      expect(result[1]).toError(
+        Error,
+        `Invalid field. "extensions" must be plain object or null`,
+      );
+    });
     it(`should return data when message is valid format`, () => {
       const result = parseMessage(JSON.stringify({
         type: "subscribe",
@@ -204,8 +496,43 @@ describe("parseMessage", () => {
         id: "",
         payload: {
           operationName: null,
-          variableValues: null,
+          variables: null,
           extensions: null,
+          query: "query { hello }",
+        },
+      });
+      expect(result[1]).toBeUndefined();
+    });
+    it(`should return data when message is valid format`, () => {
+      const result = parseMessage(JSON.stringify({
+        type: "subscribe",
+        id: "",
+        payload: {
+          query: "query { hello }",
+          variables: {
+            test: null,
+            test2: 0,
+            test3: "",
+            test4: true,
+            test5: {},
+          },
+          operationName: "MyQuery",
+          extensions: {},
+        },
+      }));
+      expect(result[0]).toEqual({
+        type: "subscribe",
+        id: "",
+        payload: {
+          operationName: "MyQuery",
+          variables: {
+            test: null,
+            test2: 0,
+            test3: "",
+            test4: true,
+            test5: {},
+          },
+          extensions: {},
           query: "query { hello }",
         },
       });

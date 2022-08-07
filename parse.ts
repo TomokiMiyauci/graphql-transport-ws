@@ -1,10 +1,13 @@
 import {
+  FormattedExecutionResult,
   GraphQLFormattedError,
   has,
+  isNumber,
   isPlainObject,
   isString,
   JSON,
   parseGraphQLParameters,
+  SourceLocation,
 } from "./deps.ts";
 import {
   CompleteMessage,
@@ -15,6 +18,21 @@ import {
 } from "./types.ts";
 import { MessageType } from "./constants.ts";
 
+/** Parse the value as `graphql-transport-ws` message.
+ * @param message Any value.
+ * ```ts
+ * import { parseMessage, MessageType } from "https://deno.land/x/graphql_transport_ws@$VERSION/mod.ts";
+ * import { assertEquals } from "https://deno.land/std@$VERSION/testing/asserts.ts"
+ * const ev = new MessageEvent("message", {
+ *   data: JSON.stringify({
+ *     type: "pong"
+ *   }),
+ * });
+ * const result = parseMessage(ev.data)
+ * assertEquals(result[0], {'type': MessageType.Pong })
+ * assertEquals(result[1], undefined)
+ * ```
+ */
 export default function parseMessage(
   message: unknown,
 ): [data: Message] | [data: undefined, error: SyntaxError | TypeError] {
@@ -59,10 +77,14 @@ export default function parseMessage(
       return [data as Message];
     }
 
-    case MessageType.Subscribe: {
+    case MessageType.Subscribe:
+    case MessageType.Next:
+    case MessageType.Error:
+    case MessageType.Complete: {
       if (!has(data, "id")) {
         return [, TypeError(`Missing field. "id"`)];
       }
+
       if (!isString(data.id)) {
         return [
           ,
@@ -71,38 +93,39 @@ export default function parseMessage(
           ),
         ];
       }
-      if (!has(data, "payload")) {
-        return [, TypeError(`Missing field. "payload"`)];
-      }
-
-      const graphqlParametersResult = parseGraphQLParameters(data.payload);
-
-      if (!graphqlParametersResult[0]) {
-        return graphqlParametersResult;
-      }
-
-      return [
-        { ...data, payload: graphqlParametersResult[0] } as SubscribeMessage,
-      ];
-    }
-
-    case MessageType.Next:
-    case MessageType.Error:
-    case MessageType.Complete: {
-      if (!has(data, "id")) {
-        return [, TypeError(`Missing property. "id"`)];
-      }
 
       switch (data.type) {
+        case MessageType.Subscribe:
         case MessageType.Next:
         case MessageType.Error: {
           if (!has(data, "payload")) {
-            return [, TypeError(`Missing property. "payload"`)];
+            return [, TypeError(`Missing field. "payload"`)];
           }
 
           switch (data.type) {
+            case MessageType.Subscribe: {
+              const graphqlParametersResult = parseGraphQLParameters(
+                data.payload,
+              );
+
+              if (!graphqlParametersResult[0]) {
+                return graphqlParametersResult;
+              }
+
+              return [
+                {
+                  ...data,
+                  payload: graphqlParametersResult[0],
+                } as SubscribeMessage,
+              ];
+            }
             case MessageType.Next: {
-              return [data as NextMessage];
+              try {
+                assertFormattedExecutionResult(data.payload);
+                return [data as NextMessage];
+              } catch (e) {
+                return [, e];
+              }
             }
 
             case MessageType.Error: {
@@ -149,7 +172,72 @@ function assertGraphQLFormattedError(
     throw TypeError(`Invalid data type. Must be plain object.`);
   }
 
+  if (!has(value, "message")) {
+    throw TypeError(`Missing field. "message"`);
+  }
+
   if (!isString(value.message)) {
-    throw TypeError(`Invalid field. "message" must be string`);
+    throw TypeError(`Invalid field. "message" must be string.`);
+  }
+
+  if (has(value, "locations")) {
+    if (!Array.isArray(value.locations)) {
+      throw TypeError(`Invalid field. "locations" must be array object.`);
+    }
+
+    value.locations.map(assertSourceLocation);
+  }
+
+  if (has(value, "path")) {
+    if (!Array.isArray(value.path)) {
+      throw TypeError(`Invalid field. "path" must be array object.`);
+    }
+    value.path.map((value) => {
+      if (!isString(value) && !isNumber(value)) {
+        throw TypeError(
+          `Invalid field. "path[number]" must be string or number.`,
+        );
+      }
+    });
+  }
+  if (has(value, "extensions")) {
+    if (!isPlainObject(value.extensions)) {
+      throw TypeError(`Invalid field. "extensions" must be plain object.`);
+    }
+  }
+}
+
+function assertSourceLocation(value: unknown): asserts value is SourceLocation {
+  if (!isPlainObject(value)) {
+    throw TypeError(`Invalid data type. Must be plain object.`);
+  }
+
+  if (!has(value, "line")) {
+    throw TypeError(`Missing field. "line"`);
+  }
+
+  if (!isNumber(value.line)) {
+    throw TypeError(`Invalid field. "line" must be number.`);
+  }
+  if (!has(value, "column")) {
+    throw TypeError(`Missing field. "column"`);
+  }
+
+  if (!isNumber(value.column)) {
+    throw TypeError(`Invalid field. "column" must be number.`);
+  }
+}
+
+export function assertFormattedExecutionResult(
+  value: unknown,
+): asserts value is FormattedExecutionResult {
+  if (!isPlainObject(value)) {
+    throw TypeError(`Invalid data type. Must be plain object.`);
+  }
+  if (has(value, "errors")) {
+    if (!Array.isArray(value.errors)) {
+      throw TypeError(`Invalid field. "errors" must be array object.`);
+    }
+    value.errors.map(assertGraphQLFormattedError);
   }
 }
