@@ -55,28 +55,28 @@ export interface GraphQLTransportWs extends EventTarget {
    * If the connection is closed or about to be closed, sending message will discard.
    * @see https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#connectioninit
    */
-  connectionInit(): void;
+  connectionInit(payload?: Record<string, unknown>): void;
 
   /** Send `connectionAck` message.
    * If the connection is not yet open, sending the message is queued.
    * If the connection is closed or about to be closed, sending message will discard.
    * @see https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#connectionack
    */
-  connectionAck(): void;
+  connectionAck(payload?: Record<string, unknown>): void;
 
   /** Send `Ping` message.
    * If the connection is not yet open, sending the message is queued.
    * If the connection is closed or about to be closed, sending message will discard.
    * @see https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#ping
    */
-  ping(): void;
+  ping(payload?: Record<string, unknown>): void;
 
   /** Send `Pong` message.
    * If the connection is not yet open, sending the message is queued.
    * If the connection is closed or about to be closed, sending message will discard.
    * @see https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#pong
    */
-  pong(): void;
+  pong(payload?: Record<string, unknown>): void;
 
   /** Send `Subscribe` message.
    * Callbacks can be registered for messages with the same subscription ID.
@@ -203,20 +203,20 @@ export class GraphQLTransportWsImpl implements GraphQLTransportWs {
     });
   }
 
-  connectionInit() {
-    this.#sender.connectionInit();
+  connectionInit(payload?: Record<string, unknown>): void {
+    this.#sender.connectionInit(payload);
   }
 
   connectionAck(payload?: Record<string, unknown>): void {
     this.#sender.connectionAck(payload);
   }
 
-  ping(): void {
-    this.#sender.ping();
+  ping(payload?: Record<string, unknown>): void {
+    this.#sender.ping(payload);
   }
 
-  pong(): void {
-    this.#sender.pong();
+  pong(payload?: Record<string, unknown>): void {
+    this.#sender.pong(payload);
   }
 
   subscribe<TData = ObjMap<unknown>, TExtensions = ObjMap<unknown>>(
