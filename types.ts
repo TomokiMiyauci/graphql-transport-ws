@@ -1,7 +1,7 @@
 import { MessageType } from "./constants.ts";
 import {
   ExecutionArgs,
-  ExecutionResult,
+  FormattedExecutionResult,
   GraphQLFormattedError,
   GraphQLParameters,
   ObjMap,
@@ -68,7 +68,7 @@ export interface NextMessage<
   TExtensions = ObjMap<unknown>,
 > extends BaseMessage, WithId {
   type: MessageType.Next;
-  payload: ExecutionResult<TData, TExtensions>;
+  payload: FormattedExecutionResult<TData, TExtensions>;
 }
 
 export interface ErrorMessage extends BaseMessage, WithId {

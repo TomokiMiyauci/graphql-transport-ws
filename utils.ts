@@ -68,17 +68,17 @@ export function createWebSocket(url: string | URL): WebSocket {
 }
 
 export interface Sender {
+  connectionAck(payload?: ConnectionAckMessage["payload"]): void;
+  connectionInit(): undefined | Dispose;
   ping(): Dispose | undefined;
   pong(): Dispose | undefined;
-  complete(id: string): Dispose | undefined;
-  connectionAck(payload?: ConnectionAckMessage["payload"]): void;
-  next(id: NextMessage["id"], payload: NextMessage["payload"]): void;
-  error(id: ErrorMessage["id"], payload: ErrorMessage["payload"]): void;
-  connectionInit(): undefined | Dispose;
   subscribe(
     id: string,
     payload: GraphQLRequestParameters,
   ): undefined | Dispose;
+  next(id: NextMessage["id"], payload: NextMessage["payload"]): void;
+  error(id: ErrorMessage["id"], payload: ErrorMessage["payload"]): void;
+  complete(id: string): Dispose | undefined;
 }
 
 export class SenderImpl implements Sender {

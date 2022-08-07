@@ -221,17 +221,28 @@ export function createSubscribeHandler(
   ctx: SocketListenerContext,
   {
     schema,
-    operationName,
+    operationName: _operationName,
     contextValue,
     document,
     fieldResolver,
     rootValue,
     subscribeFieldResolver,
     typeResolver,
-    variableValues,
+    variableValues: _variableValues,
   }: Readonly<GraphQLArgs>,
 ): MessageEventHandler<SubscribeMessage> {
-  return async ({ data: { id, payload } }) => {
+  return async (
+    {
+      data: {
+        id,
+        payload: {
+          query,
+          operationName = _operationName,
+          variables: variableValues = _variableValues,
+        },
+      },
+    },
+  ) => {
     if (!ctx.authorized) {
       socket.close(
         Status.Unauthorized,
@@ -249,7 +260,7 @@ export function createSubscribeHandler(
     }
 
     const [documentNode, error] = safeSync<DocumentNode, GraphQLError>(
-      () => document ?? parse(payload.query),
+      () => document ?? parse(query),
     );
 
     if (!documentNode) {
@@ -287,9 +298,8 @@ export function createSubscribeHandler(
       rootValue,
       subscribeFieldResolver,
       typeResolver,
-      variableValues,
       schema,
-      ...payload,
+      variableValues,
     };
 
     const executionResult = await executor(executionArgs);

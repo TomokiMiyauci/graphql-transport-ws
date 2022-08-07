@@ -13,7 +13,7 @@ import {
 } from "./types.ts";
 import { createMessageEventHandler, createSocketListener } from "./handlers.ts";
 import {
-  ExecutionResult,
+  FormattedExecutionResult,
   GraphQLFormattedError,
   GraphQLRequestParameters,
   ObjMap,
@@ -29,7 +29,7 @@ import { UNKNOWN } from "./constants.ts";
 
 type CapturedCallbacks<TData = ObjMap<unknown>, TExtensions = ObjMap<unknown>> =
   {
-    onNext(callback: ExecutionResult<TData, TExtensions>): void;
+    onNext(callback: FormattedExecutionResult<TData, TExtensions>): void;
 
     onError(callback: GraphQLFormattedError[]): void;
 
@@ -94,7 +94,7 @@ export interface GraphQLTransportWs extends EventTarget {
    * If the connection is closed or about to be closed, sending message will discard.
    * @see https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#next
    */
-  next(id: string, payload: ExecutionResult): void;
+  next(id: string, payload: FormattedExecutionResult): void;
 
   /** Send `Error` message.
    * If the connection is not yet open, sending the message is queued.
@@ -203,30 +203,20 @@ export class GraphQLTransportWsImpl implements GraphQLTransportWs {
     });
   }
 
+  connectionInit() {
+    this.#sender.connectionInit();
+  }
+
+  connectionAck(payload?: Record<string, unknown>): void {
+    this.#sender.connectionAck(payload);
+  }
+
   ping(): void {
     this.#sender.ping();
   }
 
   pong(): void {
     this.#sender.pong();
-  }
-
-  complete(id: string): void {
-    this.#sender.complete(id);
-  }
-
-  connectionAck(): void {
-    this.#sender.connectionAck();
-  }
-  next(id: string, payload: ExecutionResult): void {
-    this.#sender.next(id, payload);
-  }
-  error(id: string, payload: GraphQLFormattedError[]): void {
-    this.#sender.error(id, payload);
-  }
-
-  connectionInit() {
-    this.#sender.connectionInit();
   }
 
   subscribe<TData = ObjMap<unknown>, TExtensions = ObjMap<unknown>>(
@@ -277,6 +267,18 @@ export class GraphQLTransportWsImpl implements GraphQLTransportWs {
     };
 
     return { id, dispose };
+  }
+
+  next(id: string, payload: FormattedExecutionResult): void {
+    this.#sender.next(id, payload);
+  }
+
+  error(id: string, payload: GraphQLFormattedError[]): void {
+    this.#sender.error(id, payload);
+  }
+
+  complete(id: string): void {
+    this.#sender.complete(id);
   }
 
   addEventListener<K extends keyof GraphQLTransportWsEventMap>(
