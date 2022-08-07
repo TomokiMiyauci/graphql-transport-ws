@@ -18,7 +18,13 @@ import {
   GraphQLRequestParameters,
   ObjMap,
 } from "./deps.ts";
-import { Disposable, Dispose, Sender, SenderImpl } from "./utils.ts";
+import {
+  createWebSocket,
+  Disposable,
+  Dispose,
+  Sender,
+  SenderImpl,
+} from "./utils.ts";
 import { UNKNOWN } from "./constants.ts";
 
 type CapturedCallbacks<TData = ObjMap<unknown>, TExtensions = ObjMap<unknown>> =
@@ -42,43 +48,67 @@ export interface GraphQLTransportWsEventMap {
   complete: MessageEvent<CompleteMessage>;
 }
 
+/** Provides the API for `graphql-transport-ws` sending and receiving data. */
 export interface GraphQLTransportWs extends EventTarget {
+  /** Send `ConnectionInit` message.
+   * If the connection is not yet open, sending the message is queued.
+   * If the connection is closed or about to be closed, sending message will discard.
+   * @see https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#connectioninit
+   */
+  connectionInit(): void;
+
+  /** Send `connectionAck` message.
+   * If the connection is not yet open, sending the message is queued.
+   * If the connection is closed or about to be closed, sending message will discard.
+   * @see https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#connectionack
+   */
+  connectionAck(): void;
+
   /** Send `Ping` message.
-   * If the connection is not yet open, sending the message is delayed.
-   * If the connection is closed or about to be closed, sending message is discarded.
+   * If the connection is not yet open, sending the message is queued.
+   * If the connection is closed or about to be closed, sending message will discard.
    * @see https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#ping
    */
   ping(): void;
 
   /** Send `Pong` message.
-   * If the connection is not yet open, sending the message is delayed.
-   * If the connection is closed or about to be closed, sending message is discarded.
+   * If the connection is not yet open, sending the message is queued.
+   * If the connection is closed or about to be closed, sending message will discard.
    * @see https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#pong
    */
   pong(): void;
 
+  /** Send `Subscribe` message.
+   * Callbacks can be registered for messages with the same subscription ID.
+   * If the connection is not yet open, sending the message is queued.
+   * If the connection is closed or about to be closed, sending message will discard.
+   * @see https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#subscribe
+   */
+  subscribe(
+    graphqlParams: Readonly<GraphQLRequestParameters>,
+    callbacks?: Readonly<Partial<CapturedCallbacks>>,
+  ): { id: string } & Disposable;
+
+  /** Send `Next` message.
+   * If the connection is not yet open, sending the message is queued.
+   * If the connection is closed or about to be closed, sending message will discard.
+   * @see https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#next
+   */
+  next(id: string, payload: ExecutionResult): void;
+
+  /** Send `Error` message.
+   * If the connection is not yet open, sending the message is queued.
+   * If the connection is closed or about to be closed, sending message will discard.
+   * @see https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#error
+   */
+  error(id: string, payload: GraphQLFormattedError[]): void;
+
   /** Send `Complete` message.
-   * If the connection is not yet open, sending the message is delayed.
-   * If the connection is closed or about to be closed, sending message is discarded.
+   * If the connection is not yet open, sending the message is queued.
+   * If the connection is closed or about to be closed, sending message will discard.
    * @see https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#complete
    */
   complete(id: string): void;
-
-  connectionAck(): void;
-  next(id: string, payload: ExecutionResult): void;
-  error(id: string, payload: GraphQLFormattedError[]): void;
-
-  /** Send `ConnectionInit` message.
-   * If the connection is not yet open, sending the message is delayed.
-   * If the connection is closed or about to be closed, sending message is discarded.
-   * @see https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#connectioninit
-   */
-  connectionInit(): void;
-
-  subscribe(
-    graphqlParams: Readonly<GraphQLRequestParameters>,
-    callbacks?: Partial<CapturedCallbacks>,
-  ): { id: string } & Disposable;
 
   socket: WebSocket;
 
@@ -249,10 +279,18 @@ export class GraphQLTransportWsImpl implements GraphQLTransportWs {
     return { id, dispose };
   }
 
+  addEventListener<K extends keyof GraphQLTransportWsEventMap>(
+    type: K,
+    listener: (
+      this: GraphQLTransportWs,
+      ev: GraphQLTransportWsEventMap[K],
+    ) => any,
+    options?: boolean | AddEventListenerOptions,
+  ): void;
   addEventListener(
     type: string,
-    listener: EventListenerOrEventListenerObject | null,
-    options?: boolean | AddEventListenerOptions | undefined,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | AddEventListenerOptions,
   ): void {
     this.#eventTarget.addEventListener(type, listener, options);
 
@@ -282,6 +320,21 @@ export class GraphQLTransportWsImpl implements GraphQLTransportWs {
   #isAlive(id: string): boolean {
     return this.#idMap.has(id);
   }
+}
+
+/** Create a providing the API for sending and receiving `graphql-transport-ws` accordance data.
+ * @throws SyntaxError
+ * - parsing of `url` fails
+ * - `url` has a scheme other than `ws` or `wss`
+ * - `url` has a fragment
+ * - any of the values in `protocols` occur more than once, or otherwise fail to match the requirements for elements that comprise the value of `Sec-WebSocket-Protocol` fields as defined by the WebSocket Protocol specification
+ */
+export function createGraphQLTransportWs(
+  url: string | URL | WebSocket,
+): GraphQLTransportWs {
+  const socket = url instanceof WebSocket ? url : createWebSocket(url);
+
+  return new GraphQLTransportWsImpl(socket);
 }
 
 class ExpandedMap<K, V> extends Map<K, V> {

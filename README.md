@@ -4,19 +4,42 @@ The WebSocket
 [graphql-transport-ws](https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md)
 sub-protocol implementation.
 
-## What
+## Usage
 
-Provides an implementation of the most core parts defined in
-[graphql-transport-ws](https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md).
+### Ping and Pong
 
-- Message parser
-- Message types
-- Message senders
-- Socket handler
-- Private status codes
+```ts
+import { createGraphQLTransportWs } from "https://deno.land/x/graphql_transport_ws@$VERSION/mod.ts";
+const graphqlTransportWs = createGraphQLTransportWs("<ENDPOINT>");
 
-These low-level APIs can be used to create GraphQL over WebSocket servers and
-GraphQL clients.
+graphqlTransportWs.addEventListener("pong", (ev) => {
+  console.log(ev.data);
+});
+graphqlTransportWs.ping();
+
+graphqlTransportWs.addEventListener("ping", () => {
+  graphqlTransportWs.pong();
+});
+```
+
+### Subscribe subscription
+
+```ts
+import { createGraphQLTransportWs } from "https://deno.land/x/graphql_transport_ws@$VERSION/mod.ts";
+const graphqlTransportWs = createGraphQLTransportWs("<ENDPOINT>");
+
+graphqlTransportWs.addEventListener("connectionack", (ev) => {
+  console.log(ev.data);
+});
+graphqlTransportWs.addEventListener("next", (ev) => {
+  console.log(ev.data.id, ev.data.payload);
+});
+
+graphqlTransportWs.connectionInit();
+graphqlTransportWs.subscribe({
+  `subscription { hello }`
+})
+```
 
 ## License
 
