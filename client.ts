@@ -5,6 +5,7 @@ import {
   GraphQLTransportWsEventMap,
 } from "./graphql_transport_ws.ts";
 import { createPingHandler } from "./handlers.ts";
+import { PROTOCOL, Status, STATUS_TEXT } from "./constants.ts";
 
 export type ClientEventMap = Pick<
   GraphQLTransportWsEventMap,
@@ -47,6 +48,11 @@ export type ClientOptions = {
    * @default false
    */
   disableInitialConnection: boolean;
+
+  /** Whether to disable disconnecting unknown subprotocol connection automatically.
+   * @default false
+   */
+  disableUnknownProtocolDisconnection: boolean;
 };
 
 /** Create client-side `graphql-transport-ws` sub-protocol compliant API.
@@ -58,10 +64,18 @@ export type ClientOptions = {
  */
 export function createClient(
   url: string | URL | WebSocket,
-  { disableInitialConnection }: Readonly<Partial<ClientOptions>> = {},
+  { disableInitialConnection, disableUnknownProtocolDisconnection }: Readonly<
+    Partial<ClientOptions>
+  > = {},
 ): Client {
   const client = createGraphQLTransportWs(url);
   const pingHandler = createPingHandler(client.socket);
+
+  if (!disableUnknownProtocolDisconnection) {
+    const openHandler = createOpenHandler(client.socket);
+    client.socket.addEventListener("open", openHandler, { once: true });
+    client.socket.addEventListener("close", openHandler);
+  }
 
   client.addEventListener("ping", pingHandler);
 
@@ -74,4 +88,15 @@ export function createClient(
   }
 
   return client;
+}
+
+function createOpenHandler(socket: WebSocket): EventListener {
+  return () => {
+    if (socket.protocol !== PROTOCOL) {
+      socket.close(
+        Status.SubprotocolNotAcceptable,
+        STATUS_TEXT[Status.SubprotocolNotAcceptable],
+      );
+    }
+  };
 }

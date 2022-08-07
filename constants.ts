@@ -16,6 +16,8 @@ export enum Status {
    */
   Unauthorized = 4401,
 
+  SubprotocolNotAcceptable = 4406,
+
   /** GraphQL over WebSocket Protocol - Connection initialization timeout
    * @see [Connection initialization timeout](https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#connection-initialisation-timeout)
    */
@@ -34,12 +36,13 @@ export enum Status {
 
 /** A record of all the private status codes text. */
 export const STATUS_TEXT = {
+  [Status.BadRequest]: (message: string) => message,
   [Status.Unauthorized]: `Unauthorized`,
+  [Status.SubprotocolNotAcceptable]: `Subprotocol not acceptable`,
   [Status.ConnectionInitializationTimeout]: `Connection initialization timeout`,
   [Status.SubscriberAlreadyExists]: (id: string): string =>
     `Subscriber for ${id} already exists`,
   [Status.TooManyInitializationRequests]: `Too many initialization requests`,
-  [Status.BadRequest]: (message: string) => message,
 };
 
 /** Message type. */
