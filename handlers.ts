@@ -1,20 +1,16 @@
-import { Dispose, safeSend } from "./utils.ts";
+import { Dispose, Messenger, safeSend } from "./utils.ts";
 import parseMessage from "./parse.ts";
-
-import { Messenger } from "./message.ts";
-import { MessageHandler } from "./types.ts";
 import {
   CompleteMessage,
   ConnectionAckMessage,
   ConnectionInitMessage,
   ErrorMessage,
+  MessageHandler,
   NextMessage,
   PingMessage,
   PongMessage,
   SubscribeMessage,
-} from "./message.ts";
-import MessageType from "./message_type.ts";
-import { PRIVATE_STATUS_TEXT, PrivateStatus } from "./status.ts";
+} from "./types.ts";
 import {
   DocumentNode,
   execute,
@@ -30,7 +26,13 @@ import {
   subscribe,
   validate,
 } from "./deps.ts";
-import { DEFAULT_CONNECTION_TIMEOUT, PROTOCOL } from "./constants.ts";
+import {
+  DEFAULT_CONNECTION_TIMEOUT,
+  MessageType,
+  PRIVATE_STATUS_TEXT,
+  PrivateStatus,
+  PROTOCOL,
+} from "./constants.ts";
 
 export function createPingHandler(socket: WebSocket) {
   return (_: MessageEvent<PingMessage>) => {

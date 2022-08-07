@@ -5,13 +5,12 @@ import {
   ConnectionAckMessage,
   ConnectionInitMessage,
   ErrorMessage,
+  MessageHandler,
   NextMessage,
   PingMessage,
   PongMessage,
   SubscribeMessage,
-} from "./message.ts";
-import { Sender, SenderImpl } from "./sender.ts";
-import { MessageHandler } from "./types.ts";
+} from "./types.ts";
 import { createMessageHandler, createSocketHandler } from "./handlers.ts";
 import {
   ExecutionResult,
@@ -19,7 +18,7 @@ import {
   GraphQLRequestParameters,
   ObjMap,
 } from "./deps.ts";
-import { Disposable, Dispose } from "./utils.ts";
+import { Disposable, Dispose, Sender, SenderImpl } from "./utils.ts";
 import { UNKNOWN } from "./constants.ts";
 
 type CapturedCallbacks<TData = ObjMap<unknown>, TExtensions = ObjMap<unknown>> =

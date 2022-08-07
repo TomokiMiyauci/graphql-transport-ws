@@ -6,14 +6,14 @@ import {
   JSON,
   parseGraphQLParameters,
 } from "./deps.ts";
-import MessageType from "./message_type.ts";
 import {
   CompleteMessage,
   ErrorMessage,
   Message,
   NextMessage,
   SubscribeMessage,
-} from "./message.ts";
+} from "./types.ts";
+import { MessageType } from "./constants.ts";
 
 export default function parseMessage(
   message: unknown,

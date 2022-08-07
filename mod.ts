@@ -11,8 +11,11 @@ export {
   type PongMessage,
   type ServerMessage,
   type SubscribeMessage,
-} from "./message.ts";
-export { default as MessageType } from "./message_type.ts";
-export { PROTOCOL } from "./constants.ts";
-export { PRIVATE_STATUS_TEXT, PrivateStatus } from "./status.ts";
+} from "./types.ts";
+export {
+  MessageType,
+  PRIVATE_STATUS_TEXT,
+  PrivateStatus,
+  PROTOCOL,
+} from "./constants.ts";
 export { createWebSocket } from "./utils.ts";
