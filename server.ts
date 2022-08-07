@@ -6,7 +6,7 @@ import {
   createPingHandler,
   createSubscribeHandler,
   createUnknownHandler,
-  SocketContext,
+  SocketListenerContext,
 } from "./handlers.ts";
 import { createWebSocket } from "./utils.ts";
 import {
@@ -59,7 +59,7 @@ export function createServerClient(
   const client = new GraphQLTransportWsImpl(socket) as ServerClient;
 
   const idMap = new Map<string, AsyncGenerator>();
-  const ctx: SocketContext = {
+  const ctx: SocketListenerContext = {
     authorized: false,
     idMap,
   };

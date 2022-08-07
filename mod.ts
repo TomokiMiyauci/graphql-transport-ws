@@ -12,10 +12,5 @@ export {
   type ServerMessage,
   type SubscribeMessage,
 } from "./types.ts";
-export {
-  MessageType,
-  PRIVATE_STATUS_TEXT,
-  PrivateStatus,
-  PROTOCOL,
-} from "./constants.ts";
+export { MessageType, PROTOCOL, Status, STATUS_TEXT } from "./constants.ts";
 export { createWebSocket } from "./utils.ts";

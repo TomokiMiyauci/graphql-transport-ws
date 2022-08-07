@@ -2,7 +2,11 @@ export const PROTOCOL = "graphql-transport-ws";
 export const UNKNOWN = "$$unknown";
 export const DEFAULT_CONNECTION_TIMEOUT = 3_000;
 
-export enum PrivateStatus {
+export const CONNECTIONINIT = "connectioninit";
+export const CONNECTIONACK = "connectionack";
+
+/** WebSocket private status code. */
+export enum Status {
   InternalServerError = 4500,
   InternalClientError = 4005,
   BadRequest = 4400,
@@ -12,22 +16,21 @@ export enum PrivateStatus {
   SubprotocolNotAcceptable = 4406,
   ConnectionInitializationTimeout = 4408,
   ConnectionAcknowledgementTimeout = 4504,
-  /** Subscriber distinction is very important */
   SubscriberAlreadyExists = 4409,
   TooManyInitializationRequests = 4429,
 }
 
-export const PRIVATE_STATUS_TEXT = {
-  [PrivateStatus.Unauthorized]: `Unauthorized`,
-  [PrivateStatus.ConnectionInitializationTimeout]:
-    `Connection initialization timeout`,
-  [PrivateStatus.SubscriberAlreadyExists]: (id: string): string =>
+/** A record of all the private status codes text. */
+export const STATUS_TEXT = {
+  [Status.Unauthorized]: `Unauthorized`,
+  [Status.ConnectionInitializationTimeout]: `Connection initialization timeout`,
+  [Status.SubscriberAlreadyExists]: (id: string): string =>
     `Subscriber for ${id} already exists`,
-  [PrivateStatus.TooManyInitializationRequests]:
-    `Too many initialization requests`,
-  [PrivateStatus.BadRequest]: (message: string) => message,
+  [Status.TooManyInitializationRequests]: `Too many initialization requests`,
+  [Status.BadRequest]: (message: string) => message,
 };
 
+/** Message type. */
 export enum MessageType {
   ConnectionInit = "connection_init",
   ConnectionAck = "connection_ack",

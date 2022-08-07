@@ -11,8 +11,9 @@ import {
 export type RequiredExecutionArgs = Pick<ExecutionArgs, "schema">;
 export type PartialExecutionArgs = Omit<ExecutionArgs, "schema">;
 
+/** Handler for `MessageEvent`. */
 // deno-lint-ignore no-explicit-any
-export type MessageHandler<T = any> = (
+export type MessageEventHandler<T = any> = (
   ev: MessageEvent<T>,
 ) => void | Promise<void>;
 
@@ -30,10 +31,9 @@ type WithId = {
   readonly id: string;
 };
 
-type PartialGraphQLParameter = keyof Omit<GraphQLParameters, "query">;
 export type PartialGraphQLParameters = PartialBy<
   GraphQLParameters,
-  PartialGraphQLParameter
+  keyof Omit<GraphQLParameters, "query">
 >;
 
 export interface ConnectionInitMessage extends BaseMessage {

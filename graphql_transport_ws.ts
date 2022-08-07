@@ -5,13 +5,13 @@ import {
   ConnectionAckMessage,
   ConnectionInitMessage,
   ErrorMessage,
-  MessageHandler,
+  MessageEventHandler,
   NextMessage,
   PingMessage,
   PongMessage,
   SubscribeMessage,
 } from "./types.ts";
-import { createMessageHandler, createSocketHandler } from "./handlers.ts";
+import { createMessageEventHandler, createSocketListener } from "./handlers.ts";
 import {
   ExecutionResult,
   GraphQLFormattedError,
@@ -30,15 +30,16 @@ type CapturedCallbacks<TData = ObjMap<unknown>, TExtensions = ObjMap<unknown>> =
     onCompleted(): void;
   };
 
+/** Sub-protocol of `graphql-transport-ws` event map. */
 export interface GraphQLTransportWsEventMap {
   connectioninit: MessageEvent<ConnectionInitMessage>;
   connectionack: MessageEvent<ConnectionAckMessage>;
   ping: MessageEvent<PingMessage>;
   pong: MessageEvent<PongMessage>;
   subscribe: MessageEvent<SubscribeMessage>;
-  complete: MessageEvent<CompleteMessage>;
   next: MessageEvent<NextMessage>;
   error: MessageEvent<ErrorMessage>;
+  complete: MessageEvent<CompleteMessage>;
 }
 
 export interface GraphQLTransportWs extends EventTarget {
@@ -114,7 +115,7 @@ export class GraphQLTransportWsImpl implements GraphQLTransportWs {
 
   #eventTarget: EventTarget;
 
-  #messageHandler: MessageHandler;
+  #messageHandler: MessageEventHandler;
 
   /** Memory completed subscription ids. */
   #idMap: ExpandedMap<string, (() => void) | undefined> = new ExpandedMap<
@@ -128,9 +129,13 @@ export class GraphQLTransportWsImpl implements GraphQLTransportWs {
     this.#eventTarget = new EventTarget();
     this.#sender = new SenderImpl(socket);
 
-    this.#messageHandler = createMessageHandler({
-      onComplete: (ev) => {
-        const event = new MessageEvent("complete", ev);
+    this.#messageHandler = createMessageEventHandler({
+      onConnectionInit: (ev) => {
+        const event = new MessageEvent("connectioninit", ev);
+        this.dispatchEvent(event);
+      },
+      onConnectionAck: (ev) => {
+        const event = new MessageEvent("connectionack", ev);
         this.dispatchEvent(event);
       },
       onPing: (ev) => {
@@ -141,30 +146,29 @@ export class GraphQLTransportWsImpl implements GraphQLTransportWs {
         const event = new MessageEvent("pong", ev);
         this.dispatchEvent(event);
       },
-      onConnectionInit: (ev) => {
-        const event = new MessageEvent("connectioninit", ev);
-        this.dispatchEvent(event);
-      },
       onSubscribe: (ev) => {
         const event = new MessageEvent("subscribe", ev);
         this.dispatchEvent(event);
       },
-      onUnknown: (ev) => {
-        const event = new MessageEvent(UNKNOWN, ev);
-        this.dispatchEvent(event);
-      },
-
       onNext: (ev) => {
         if (this.#isAlive(ev.data.id)) {
           const customEvent = new MessageEvent("next", ev);
           this.dispatchEvent(customEvent);
         }
       },
+      onComplete: (ev) => {
+        const event = new MessageEvent("complete", ev);
+        this.dispatchEvent(event);
+      },
       onError: (ev) => {
         if (this.#isAlive(ev.data.id)) {
           const customEvent = new MessageEvent("error", ev);
           this.dispatchEvent(customEvent);
         }
+      },
+      onUnknown: (ev) => {
+        const event = new MessageEvent(UNKNOWN, ev);
+        this.dispatchEvent(event);
       },
     });
   }
@@ -212,7 +216,7 @@ export class GraphQLTransportWsImpl implements GraphQLTransportWs {
       return id === fromId && this.#isAlive(id);
     }
 
-    const socketHandler = createSocketHandler({
+    const socketListener = createSocketListener({
       onNext: ({ data }) => {
         if (onNext && isReceivable.call(this, data.id)) {
           onNext(data.payload as any);
@@ -231,7 +235,7 @@ export class GraphQLTransportWsImpl implements GraphQLTransportWs {
       },
     });
 
-    const disposeSocket = socketHandler(this.socket);
+    const disposeListen = socketListener(this.socket);
     const disposeSubscribeMessageSending = this.#sender.subscribe(
       id,
       graphqlParams,
@@ -239,7 +243,7 @@ export class GraphQLTransportWsImpl implements GraphQLTransportWs {
 
     const dispose: Dispose = () => {
       disposeSubscribeMessageSending?.();
-      disposeSocket();
+      disposeListen();
     };
 
     return { id, dispose };

@@ -5,7 +5,8 @@ import {
   ConnectionAckMessage,
   ConnectionInitMessage,
   ErrorMessage,
-  MessageHandler,
+  GraphQLArgs,
+  MessageEventHandler,
   NextMessage,
   PingMessage,
   PongMessage,
@@ -21,7 +22,6 @@ import {
   isRequestError,
   OperationTypeNode,
   parse,
-  PartialBy,
   safeSync,
   subscribe,
   validate,
@@ -29,13 +29,46 @@ import {
 import {
   DEFAULT_CONNECTION_TIMEOUT,
   MessageType,
-  PRIVATE_STATUS_TEXT,
-  PrivateStatus,
   PROTOCOL,
+  Status,
+  STATUS_TEXT,
 } from "./constants.ts";
 
-export function createPingHandler(socket: WebSocket) {
-  return (_: MessageEvent<PingMessage>) => {
+/** `MessageEvent` handler map. */
+export type MessageEventHandlers = {
+  /** Call on `connection_init` message. */
+  onConnectionInit: MessageEventHandler<ConnectionInitMessage>;
+
+  /** Call on `connection_ack` message. */
+  onConnectionAck: MessageEventHandler<ConnectionAckMessage>;
+
+  /** Call on `ping` message. */
+  onPing: MessageEventHandler<PingMessage>;
+
+  /** Call on `pong` message. */
+  onPong: MessageEventHandler<PongMessage>;
+
+  /** Call on `subscribe` message. */
+  onSubscribe: MessageEventHandler<SubscribeMessage>;
+
+  /** Call on `next` message. */
+  onNext: MessageEventHandler<NextMessage>;
+
+  /** Call on `error` message. */
+  onError: MessageEventHandler<ErrorMessage>;
+
+  /** Call on `complete` message. */
+  onComplete: MessageEventHandler<CompleteMessage>;
+
+  /** Call on unknown/unsupported message. */
+  onUnknown: EventListener;
+};
+
+/** Create `ping` event handler. */
+export function createPingHandler(
+  socket: WebSocket,
+): MessageEventHandler<PingMessage> {
+  return () => {
     safeSend(
       socket,
       JSON.stringify(Messenger.pong()),
@@ -43,7 +76,7 @@ export function createPingHandler(socket: WebSocket) {
   };
 }
 
-type CreateOpenHandlerOptions = {
+export type CreateOpenHandlerOptions = {
   /**
    * The amount of time for which the server will wait
    * for `ConnectionInit` message.
@@ -58,18 +91,7 @@ type CreateOpenHandlerOptions = {
   connectionInitWaitTimeout?: number;
 };
 
-type MessageEventHandlers = {
-  onPing: MessageHandler<PingMessage>;
-  onPong: MessageHandler<PongMessage>;
-  onConnectionAck: MessageHandler<ConnectionAckMessage>;
-  onNext: MessageHandler<NextMessage>;
-  onError: MessageHandler<ErrorMessage>;
-  onComplete: MessageHandler<CompleteMessage>;
-  onConnectionInit: MessageHandler<ConnectionInitMessage>;
-  onSubscribe: MessageHandler<SubscribeMessage>;
-};
-
-export function createMessageHandler(
+export function createMessageEventHandler(
   {
     onComplete,
     onConnectionAck,
@@ -80,23 +102,17 @@ export function createMessageHandler(
     onConnectionInit,
     onSubscribe,
     onUnknown,
-  }: Partial<
-    (
-      & MessageEventHandlers
-      & {
-        onUnknown: (
-          ev: MessageEvent,
-          ctx: { error: SyntaxError | TypeError },
-        ) => void | Promise<void>;
-      }
-    )
-  > = {},
-): MessageHandler {
+  }: Readonly<Partial<MessageEventHandlers>> = {},
+): MessageEventHandler {
   return async (ev) => {
     const [message, error] = parseMessage(ev.data);
 
     if (!message) {
-      await onUnknown?.(ev, { error });
+      const event = new MessageEvent(ev.type, {
+        ...ev,
+        data: error.message,
+      });
+      await onUnknown?.(event);
       return;
     }
 
@@ -105,71 +121,44 @@ export function createMessageHandler(
       data: message,
     });
 
-    switch (message.type) {
-      case MessageType.Ping: {
-        await onPing?.(deserializedMessageEvent);
-        break;
-      }
+    const MessageTypeHandler = {
+      [MessageType.ConnectionInit]: onConnectionInit,
+      [MessageType.ConnectionAck]: onConnectionAck,
+      [MessageType.Ping]: onPing,
+      [MessageType.Pong]: onPong,
+      [MessageType.Subscribe]: onSubscribe,
+      [MessageType.Next]: onNext,
+      [MessageType.Error]: onError,
+      [MessageType.Complete]: onComplete,
+    };
 
-      case MessageType.Pong: {
-        await onPong?.(deserializedMessageEvent);
-        break;
-      }
-
-      case MessageType.ConnectionAck: {
-        await onConnectionAck?.(deserializedMessageEvent);
-        break;
-      }
-
-      case MessageType.Next: {
-        await onNext?.(deserializedMessageEvent);
-        break;
-      }
-
-      case MessageType.Error: {
-        await onError?.(deserializedMessageEvent);
-        break;
-      }
-
-      case MessageType.ConnectionInit: {
-        await onConnectionInit?.(deserializedMessageEvent);
-        break;
-      }
-      case MessageType.Complete: {
-        await onComplete?.(deserializedMessageEvent);
-        break;
-      }
-      case MessageType.Subscribe: {
-        await onSubscribe?.(deserializedMessageEvent);
-        break;
-      }
-    }
+    return MessageTypeHandler[message.type]?.(deserializedMessageEvent);
   };
 }
 
+/** Create `open` socket handler */
 export function createOpenHandler(
   socket: WebSocket,
-  ctx: SocketContext,
+  ctx: SocketListenerContext,
   { connectionInitWaitTimeout = DEFAULT_CONNECTION_TIMEOUT }: Readonly<
-    Partial<
-      CreateOpenHandlerOptions
-    >
+    Partial<CreateOpenHandlerOptions>
   > = {},
-): () => Dispose {
+): () => Dispose | void {
   return () => {
     if (socket.protocol !== PROTOCOL) {
       socket.close(
-        PrivateStatus.SubprotocolNotAcceptable,
+        Status.SubprotocolNotAcceptable,
         "Sub protocol is not acceptable",
       );
+      return;
     }
 
     // Close socket if the connection has not been initialized after the specified wait timeout.
     const clear = setClearableTimeout(() => {
       if (!ctx.authorized) {
         socket.close(
-          PrivateStatus.ConnectionInitializationTimeout,
-          PRIVATE_STATUS_TEXT[PrivateStatus.ConnectionInitializationTimeout],
+          Status.ConnectionInitializationTimeout,
+          STATUS_TEXT[Status.ConnectionInitializationTimeout],
         );
       }
     }, connectionInitWaitTimeout);
@@ -178,11 +167,11 @@ export function createOpenHandler(
   };
 }
 
-export function createSocketHandler(
+export function createSocketListener(
   options?: Partial<MessageEventHandlers>,
 ): (socket: WebSocket) => Dispose {
   return (socket) => {
-    const messageHandler = createMessageHandler(options);
+    const messageHandler = createMessageEventHandler(options);
 
     const dispose: Dispose = () => {
       socket.removeEventListener("message", messageHandler);
@@ -195,20 +184,21 @@ export function createSocketHandler(
   };
 }
 
-export type SocketContext = {
+export type SocketListenerContext = {
   authorized: boolean;
   idMap: Map<string, AsyncGenerator>;
 };
 
+/** Create `connectioninit` event handler. */
 export function createConnectionInitHandler(
   socket: WebSocket,
-  ctx: SocketContext,
-) {
-  return (_: MessageEvent<ConnectionInitMessage>) => {
+  ctx: SocketListenerContext,
+): MessageEventHandler<ConnectionInitMessage> {
+  return () => {
     if (ctx.authorized) {
       socket.close(
-        PrivateStatus.TooManyInitializationRequests,
-        PRIVATE_STATUS_TEXT[PrivateStatus.TooManyInitializationRequests],
+        Status.TooManyInitializationRequests,
+        STATUS_TEXT[Status.TooManyInitializationRequests],
       );
       return;
     }
@@ -221,8 +211,12 @@ export function createConnectionInitHandler(
   };
 }
 
-export function createCompleteHandler(_: WebSocket, { idMap }: SocketContext) {
-  return async ({ data: { id } }: MessageEvent<CompleteMessage>) => {
+/** Create `complete` event handler */
+export function createCompleteHandler(
+  _: WebSocket,
+  { idMap }: SocketListenerContext,
+): MessageEventHandler<CompleteMessage> {
+  return async ({ data: { id } }) => {
     // Cancel subscription iteration when complete message receive.
     const asyncGen = idMap.get(id);
     idMap.delete(id);
@@ -230,11 +224,9 @@ export function createCompleteHandler(_: WebSocket, { idMap }: SocketContext) {
   };
 }
 
-export type GraphQLArgs = PartialBy<ExecutionArgs, "document">;
-
 export function createSubscribeHandler(
   socket: WebSocket,
-  ctx: SocketContext,
+  ctx: SocketListenerContext,
   {
     schema,
     operationName,
@@ -246,22 +238,20 @@ export function createSubscribeHandler(
     typeResolver,
     variableValues,
   }: Readonly<GraphQLArgs>,
-) {
-  return async (ev: MessageEvent<SubscribeMessage>) => {
+): MessageEventHandler<SubscribeMessage> {
+  return async ({ data: { id, payload } }) => {
     if (!ctx.authorized) {
       socket.close(
-        PrivateStatus.Unauthorized,
-        PRIVATE_STATUS_TEXT[PrivateStatus.Unauthorized],
+        Status.Unauthorized,
+        STATUS_TEXT[Status.Unauthorized],
       );
       return;
     }
 
-    const { id, payload } = ev.data;
-
     if (ctx.idMap.has(id)) {
       socket.close(
-        PrivateStatus.SubscriberAlreadyExists,
-        PRIVATE_STATUS_TEXT[PrivateStatus.SubscriberAlreadyExists](id),
+        Status.SubscriberAlreadyExists,
+        STATUS_TEXT[Status.SubscriberAlreadyExists](id),
       );
       return;
     }
@@ -279,10 +269,7 @@ export function createSubscribeHandler(
     const validationResult = validate(schema, documentNode);
 
     if (validationResult.length) {
-      const msg = Messenger.error(
-        id,
-        validationResult.map(toJSON),
-      );
+      const msg = Messenger.error(id, validationResult.map(toJSON));
       safeSend(socket, JSON.stringify(msg));
       return;
     }
@@ -344,10 +331,11 @@ export function createSubscribeHandler(
   };
 }
 
-export function createUnknownHandler(socket: WebSocket) {
+/** Create unknown/unsupported message event handler. */
+export function createUnknownHandler(socket: WebSocket): EventListener {
   return () => {
     socket.close(
-      PrivateStatus.BadRequest,
+      Status.BadRequest,
       `Invalid message received.`,
     );
   };
