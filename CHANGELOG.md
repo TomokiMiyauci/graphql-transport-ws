@@ -1,3 +1,23 @@
+# [1.0.0-beta.6](https://github.com/TomokiMiyauci/graphql-transport-ws/compare/1.0.0-beta.5...1.0.0-beta.6) (2022-08-07)
+
+
+### Bug Fixes
+
+* **handlers:** remove closing socket when the sub-protocol is not supported ([a22c4aa](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/a22c4aadc25f3405db9f99a1123195fe0d9bb467))
+* **server:** move authrized check to open socket handler ([ee11472](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/ee11472038b1aed6197221b97065e39d6abd8372))
+
+
+### Features
+
+* add `GraphQLTransportWs` and client and server side implementation ([babdb6f](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/babdb6f75d78fb943db719682e45bdac55c3a424))
+* **client:** add `onCompleted` callback that will fire when receive or send complete message ([433facb](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/433facbe57581ff851c553337b722cb61f857aa2))
+* **client:** add `ping`, `pong`, `connectionInit` methods ([b407317](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/b40731740fd317601b9a765381e56d3684d06ad1))
+* **client:** implemennts `addEventListener` and `removeEventListener` methods ([5e5ccdf](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/5e5ccdfacca93db73598deb5023e3dbce2e88ab8))
+* export `createClient` and `createServer` ([905a7d2](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/905a7d271585753a3a0e65cf12ac739ac15e8082))
+* **handlers:** add sending closing detail message when unknonw message type is received ([dabe9f2](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/dabe9f267f54375c9bdebede4ddb51021727d7d6))
+* **mod.ts:** add `createGraphQLTransportWs` function that create `graphql-transport-ws` API ([82d2554](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/82d2554c8541e48fa904d12ddbf9fe08c817f745))
+* **server:** add server side graphql-transport-ws client ([e57edcf](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/e57edcf1e217fc1a46d15fe29b0efcec6087d2d2))
+
 # [1.0.0-beta.5](https://github.com/TomokiMiyauci/graphql-transport-ws/compare/1.0.0-beta.4...1.0.0-beta.5) (2022-08-05)
 
 
