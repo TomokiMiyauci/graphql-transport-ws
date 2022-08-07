@@ -20,6 +20,7 @@ import {
   GraphQLError,
   isAsyncIterable,
   isRequestError,
+  isString,
   OperationTypeNode,
   parse,
   safeSync,
@@ -324,10 +325,14 @@ export function createSubscribeHandler(
 
 /** Create unknown/unsupported message event handler. */
 export function createUnknownHandler(socket: WebSocket): EventListener {
-  return () => {
+  return (ev) => {
+    const message = ev instanceof MessageEvent && isString(ev.data)
+      ? ev.data
+      : `Invalid message received`;
+
     socket.close(
       Status.BadRequest,
-      STATUS_TEXT[Status.BadRequest](`Invalid message received`),
+      STATUS_TEXT[Status.BadRequest](message),
     );
   };
 }
