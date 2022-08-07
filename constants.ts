@@ -7,16 +7,28 @@ export const CONNECTIONACK = "connectionack";
 
 /** WebSocket private status code. */
 export enum Status {
-  InternalServerError = 4500,
-  InternalClientError = 4005,
+  /** GraphQL over WebSocket Protocol - Invalid message
+   * @see [Invalid message](https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#invalid-message) */
   BadRequest = 4400,
-  BadResponse = 4004,
+
+  /** GraphQL over WebSocket Protocol - Subscribe
+   * @see [Subscribe](https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#subscribe)
+   */
   Unauthorized = 4401,
-  Forbidden = 4403,
-  SubprotocolNotAcceptable = 4406,
+
+  /** GraphQL over WebSocket Protocol - Connection initialization timeout
+   * @see [Connection initialization timeout](https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#connection-initialisation-timeout)
+   */
   ConnectionInitializationTimeout = 4408,
-  ConnectionAcknowledgementTimeout = 4504,
+
+  /** GraphQL over WebSocket Protocol - Subscribe
+   * @see [Subscribe](https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#subscribe)
+   */
   SubscriberAlreadyExists = 4409,
+
+  /** GraphQL over WebSocket Protocol - ConnectionInit
+   * @see [ConnectionInit](https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#connectioninit)
+   */
   TooManyInitializationRequests = 4429,
 }
 
@@ -32,12 +44,43 @@ export const STATUS_TEXT = {
 
 /** Message type. */
 export enum MessageType {
+  /**
+   * @see [ConnectionInit](https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#connectioninit)
+   */
   ConnectionInit = "connection_init",
+
+  /**
+   * @see [ConnectionAck](https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#connectionack)
+   */
   ConnectionAck = "connection_ack",
+
+  /**
+   * @see [Ping](https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#ping)
+   */
   Ping = "ping",
+
+  /**
+   * @see [Pong](https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#pong)
+   */
   Pong = "pong",
+
+  /**
+   * @see [Subscribe](https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#subscribe)
+   */
   Subscribe = "subscribe",
+
+  /**
+   * @see [Next](https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#next)
+   */
   Next = "next",
+
+  /**
+   * @see [Error](https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#next)
+   */
   Error = "error",
+
+  /**
+   * @see [Complete](https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#next)
+   */
   Complete = "complete",
 }

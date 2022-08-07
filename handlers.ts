@@ -29,7 +29,6 @@ import {
 import {
   DEFAULT_CONNECTION_TIMEOUT,
   MessageType,
-  PROTOCOL,
   Status,
   STATUS_TEXT,
 } from "./constants.ts";
@@ -145,14 +144,6 @@ export function createOpenHandler(
   > = {},
 ): () => Dispose | void {
   return () => {
-    if (socket.protocol !== PROTOCOL) {
-      socket.close(
-        Status.SubprotocolNotAcceptable,
-        "Sub protocol is not acceptable",
-      );
-      return;
-    }
-
     // Close socket if the connection has not been initialized after the specified wait timeout.
     const clear = setClearableTimeout(() => {
       if (!ctx.authorized) {
@@ -336,7 +327,7 @@ export function createUnknownHandler(socket: WebSocket): EventListener {
   return () => {
     socket.close(
       Status.BadRequest,
-      `Invalid message received.`,
+      STATUS_TEXT[Status.BadRequest](`Invalid message received`),
     );
   };
 }
