@@ -44,8 +44,8 @@ graphqlTransportWs.addEventListener("next", (ev) => {
 
 graphqlTransportWs.connectionInit();
 graphqlTransportWs.subscribe({
-  `subscription { hello }`
-})
+  query: `subscription { hello }`,
+});
 ```
 
 ## License
