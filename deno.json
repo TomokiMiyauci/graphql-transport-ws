@@ -16,5 +16,6 @@
     "files": {
       "exclude": ["CHANGELOG.md", "CODE_OF_CONDUCT.md"]
     }
-  }
+  },
+  "importMap": "_test_import_map.json"
 }
