@@ -6,6 +6,13 @@ sub-protocol implementation.
 
 ## Usage
 
+- `createGraphQLTransportWs` - Create API that handles sending and receiving
+  messages for the `graphql-transport-ws` sub-protocol.
+- `createClient` - Create client-side `graphql-transport-ws` sub-protocol
+  compliant API.
+- `createServer` - Create server-side `graphql-transport-ws` sub-protocol
+  compliant API.
+
 ### Ping and Pong
 
 ```ts

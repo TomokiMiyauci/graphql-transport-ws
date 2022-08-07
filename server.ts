@@ -8,11 +8,10 @@ import {
   createUnknownHandler,
   SocketListenerContext,
 } from "./handlers.ts";
-import { createWebSocket } from "./utils.ts";
 import {
+  createGraphQLTransportWs,
   GraphQLTransportWs,
   GraphQLTransportWsEventMap,
-  GraphQLTransportWsImpl,
 } from "./graphql_transport_ws.ts";
 import { UNKNOWN } from "./constants.ts";
 import {
@@ -21,17 +20,15 @@ import {
   RequiredExecutionArgs,
 } from "./types.ts";
 
-type Params = { url: string | URL | WebSocket } & RequiredExecutionArgs;
-
-type ServerEventMap = Pick<
+export type ServerEventMap = Pick<
   GraphQLTransportWsEventMap,
   "ping" | "pong" | "complete" | "connectioninit" | "subscribe"
 >;
 
-interface ServerClient extends GraphQLTransportWs {
+export interface Server extends GraphQLTransportWs {
   addEventListener<K extends keyof ServerEventMap>(
     type: K,
-    listener: (this: ServerClient, ev: ServerEventMap[K]) => any,
+    listener: (this: Server, ev: ServerEventMap[K]) => any,
     options?: boolean | AddEventListenerOptions,
   ): void;
   addEventListener(
@@ -41,7 +38,7 @@ interface ServerClient extends GraphQLTransportWs {
   ): void;
   removeEventListener<K extends keyof ServerEventMap>(
     type: K,
-    listener: (this: ServerClient, ev: ServerEventMap[K]) => any,
+    listener: (this: Server, ev: ServerEventMap[K]) => any,
     options?: boolean | EventListenerOptions,
   ): void;
   removeEventListener(
@@ -51,30 +48,37 @@ interface ServerClient extends GraphQLTransportWs {
   ): void;
 }
 
-export function createServerClient(
-  { url, schema }: Readonly<Params>,
+export type ServerParams =
+  & { url: string | URL | WebSocket }
+  & RequiredExecutionArgs;
+
+/** Create server-side `graphql-transport-ws` sub-protocol compliant API. */
+export function createServer(
+  { url, schema }: Readonly<ServerParams>,
   options: Partial<PartialExecutionArgs> = {},
-): ServerClient {
-  const socket = url instanceof WebSocket ? url : createWebSocket(url);
-  const client = new GraphQLTransportWsImpl(socket) as ServerClient;
+): Server {
+  const client = createGraphQLTransportWs(url) as Server;
 
   const idMap = new Map<string, AsyncGenerator>();
   const ctx: SocketListenerContext = {
     authorized: false,
     idMap,
   };
-
   const graphQLArgs: GraphQLArgs = {
     schema,
     ...options,
   };
 
-  const pingHandler = createPingHandler(socket);
-  const connectionInitHandler = createConnectionInitHandler(socket, ctx);
-  const completeHandler = createCompleteHandler(socket, ctx);
-  const subscribeHandler = createSubscribeHandler(socket, ctx, graphQLArgs);
-  const openHandler = createOpenHandler(socket, ctx, {});
-  const unknownHandler = createUnknownHandler(socket);
+  const pingHandler = createPingHandler(client.socket);
+  const connectionInitHandler = createConnectionInitHandler(client.socket, ctx);
+  const completeHandler = createCompleteHandler(client.socket, ctx);
+  const subscribeHandler = createSubscribeHandler(
+    client.socket,
+    ctx,
+    graphQLArgs,
+  );
+  const openHandler = createOpenHandler(client.socket, ctx, {});
+  const unknownHandler = createUnknownHandler(client.socket);
 
   client.addEventListener("ping", pingHandler);
   client.addEventListener("connectioninit", connectionInitHandler);
