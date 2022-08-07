@@ -1,5 +1,5 @@
-import { describe, expect, it } from "../dev_deps.ts";
-import { parseMessage } from "./message.ts";
+import { describe, expect, it } from "./dev_deps.ts";
+import parseMessage from "./parse.ts";
 
 describe("parseMessage", () => {
   it("should return error when message is not JSON format", () => {
@@ -59,38 +59,35 @@ describe("parseMessage", () => {
     });
   });
   describe("[connection_ack]", () => {
-    it(`should return error because it is not supported`, () => {
+    it(`should return message`, () => {
       const result = parseMessage(JSON.stringify({
         type: "connection_ack",
       }));
-      expect(result[0]).toBeFalsy();
-      expect(result[1]).toError(
-        Error,
-        `Invalid field. "type" field of "connection_ack" is not supported.`,
-      );
+      expect(result[0]).toEqual({ type: "connection_ack" });
+      expect(result[1]).toBeUndefined();
     });
   });
   describe("[error]", () => {
-    it(`should return error because it is not supported`, () => {
+    it(`should return error`, () => {
       const result = parseMessage(JSON.stringify({
         type: "error",
       }));
       expect(result[0]).toBeFalsy();
       expect(result[1]).toError(
         Error,
-        `Invalid field. "type" field of "error" is not supported.`,
+        `Missing property. "id"`,
       );
     });
   });
   describe("[next]", () => {
-    it(`should return error because it is not supported`, () => {
+    it(`should return error`, () => {
       const result = parseMessage(JSON.stringify({
         type: "next",
       }));
       expect(result[0]).toBeFalsy();
       expect(result[1]).toError(
         Error,
-        `Invalid field. "type" field of "next" is not supported.`,
+        `Missing property. "id"`,
       );
     });
   });

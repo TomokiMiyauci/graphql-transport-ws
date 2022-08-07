@@ -1,25 +1,23 @@
 import {
-  CompleteMessage,
-  ConnectionInitMessage,
-  ErrorMessage,
-  Messenger,
-  NextMessage,
-  ServerMessage,
-  SubscribeMessage,
-} from "../message.ts";
-import MessageType from "../message_type.ts";
-import {
   GraphQLFormattedError,
-  GraphQLRequestParameters,
   has,
   isPlainObject,
   isString,
   JSON,
-} from "../deps.ts";
+  parseGraphQLParameters,
+} from "./deps.ts";
+import MessageType from "./message_type.ts";
+import {
+  CompleteMessage,
+  ErrorMessage,
+  Message,
+  NextMessage,
+  SubscribeMessage,
+} from "./message.ts";
 
-export function parseMessage(
+export default function parseMessage(
   message: unknown,
-): [data: ServerMessage] | [data: undefined, error: SyntaxError | TypeError] {
+): [data: Message] | [data: undefined, error: SyntaxError | TypeError] {
   if (!isString(message)) {
     return [, TypeError("Invalid data type. Must be string.")];
   }
@@ -58,7 +56,34 @@ export function parseMessage(
         return [, TypeError(`Invalid field. "payload" must be plain object.`)];
       }
 
-      return [data as ServerMessage];
+      return [data as Message];
+    }
+
+    case MessageType.Subscribe: {
+      if (!has(data, "id")) {
+        return [, TypeError(`Missing field. "id"`)];
+      }
+      if (!isString(data.id)) {
+        return [
+          ,
+          TypeError(
+            `Invalid field. "id" must be string.`,
+          ),
+        ];
+      }
+      if (!has(data, "payload")) {
+        return [, TypeError(`Missing field. "payload"`)];
+      }
+
+      const graphqlParametersResult = parseGraphQLParameters(data.payload);
+
+      if (!graphqlParametersResult[0]) {
+        return graphqlParametersResult;
+      }
+
+      return [
+        { ...data, payload: graphqlParametersResult[0] } as SubscribeMessage,
+      ];
     }
 
     case MessageType.Next:
@@ -114,28 +139,6 @@ export function parseMessage(
         ),
       ];
     }
-  }
-}
-
-export class ClientMessenger extends Messenger {
-  static connectionInit(
-    payload?: ConnectionInitMessage["payload"],
-  ): ConnectionInitMessage {
-    return {
-      type: MessageType.ConnectionInit,
-      payload,
-    };
-  }
-
-  static subscribe(
-    id: string,
-    payload: GraphQLRequestParameters,
-  ): SubscribeMessage {
-    return {
-      id,
-      type: MessageType.Subscribe,
-      payload,
-    };
   }
 }
 

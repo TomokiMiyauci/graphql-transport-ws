@@ -1,1 +1,0 @@
-export const DEFAULT_CONNECTION_TIMEOUT = 3_000;

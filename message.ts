@@ -2,6 +2,7 @@ import {
   ExecutionResult,
   GraphQLFormattedError,
   GraphQLParameters,
+  GraphQLRequestParameters,
   ObjMap,
   PartialBy,
 } from "./deps.ts";
@@ -83,6 +84,35 @@ export type Message =
   | ServerMessage;
 
 export class Messenger {
+  static connectionAck(
+    payload?: ConnectionAckMessage["payload"],
+  ): ConnectionAckMessage {
+    return {
+      type: MessageType.ConnectionAck,
+      payload,
+    };
+  }
+  static error(
+    id: ErrorMessage["id"],
+    payload: ErrorMessage["payload"],
+  ): ErrorMessage {
+    return {
+      id,
+      type: MessageType.Error,
+      payload,
+    };
+  }
+
+  static next(
+    id: NextMessage["id"],
+    payload: NextMessage["payload"],
+  ): NextMessage {
+    return {
+      id,
+      type: MessageType.Next,
+      payload,
+    };
+  }
   static ping(payload?: PingMessage["payload"]): PingMessage {
     return {
       type: MessageType.Ping,
@@ -99,6 +129,25 @@ export class Messenger {
     return {
       id,
       type: MessageType.Complete,
+    };
+  }
+  static connectionInit(
+    payload?: ConnectionInitMessage["payload"],
+  ): ConnectionInitMessage {
+    return {
+      type: MessageType.ConnectionInit,
+      payload,
+    };
+  }
+
+  static subscribe(
+    id: string,
+    payload: GraphQLRequestParameters,
+  ): SubscribeMessage {
+    return {
+      id,
+      type: MessageType.Subscribe,
+      payload,
     };
   }
 }

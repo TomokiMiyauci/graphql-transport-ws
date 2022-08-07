@@ -1,42 +1,26 @@
 // deno-lint-ignore-file no-explicit-any
+import {
+  GraphQLTransportWs,
+  GraphQLTransportWsEventMap,
+  GraphQLTransportWsImpl,
+} from "./graphql_transport_ws.ts";
+import { createWebSocket } from "./utils.ts";
+import { createPingHandler } from "./handlers.ts";
 
-import { CompleteMessage, PingMessage, PongMessage } from "./message.ts";
-import { Sender, SenderImpl } from "./sender.ts";
-import { MessageHandler } from "./types.ts";
+type GraphQLClientOptions = {
+  disableConnectionInit: boolean;
+};
 
-export interface GraphQLEventMap {
-  ping: MessageEvent<PingMessage>;
-  pong: MessageEvent<PongMessage>;
-  complete: MessageEvent<CompleteMessage>;
-}
+type GraphQLClientEventMap = Pick<
+  GraphQLTransportWsEventMap,
+  "ping" | "pong" | "complete" | "connectionack" | "next" | "error"
+>;
 
-export interface GraphQL extends EventTarget {
-  /** Send `Ping` message.
-   * If the connection is not yet open, sending the message is delayed.
-   * If the connection is closed or about to be closed, sending message is discarded.
-   * @see https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#ping
-   */
-  ping(): void;
-
-  /** Send `Pong` message.
-   * If the connection is not yet open, sending the message is delayed.
-   * If the connection is closed or about to be closed, sending message is discarded.
-   * @see https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#pong
-   */
-  pong(): void;
-
-  /** Send `Complete` message.
-   * If the connection is not yet open, sending the message is delayed.
-   * If the connection is closed or about to be closed, sending message is discarded.
-   * @see https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#complete
-   */
-  complete(id: string): void;
-
-  socket: WebSocket;
-
-  addEventListener<K extends keyof GraphQLEventMap>(
+interface Client
+  extends Omit<GraphQLTransportWs, "connectionAck" | "next" | "error"> {
+  addEventListener<K extends keyof GraphQLClientEventMap>(
     type: K,
-    listener: (this: GraphQL, ev: GraphQLEventMap[K]) => any,
+    listener: (this: Client, ev: GraphQLClientEventMap[K]) => any,
     options?: boolean | AddEventListenerOptions,
   ): void;
   addEventListener(
@@ -44,9 +28,9 @@ export interface GraphQL extends EventTarget {
     listener: EventListenerOrEventListenerObject,
     options?: boolean | AddEventListenerOptions,
   ): void;
-  removeEventListener<K extends keyof GraphQLEventMap>(
+  removeEventListener<K extends keyof GraphQLClientEventMap>(
     type: K,
-    listener: (this: GraphQL, ev: GraphQLEventMap[K]) => any,
+    listener: (this: Client, ev: GraphQLClientEventMap[K]) => any,
     options?: boolean | EventListenerOptions,
   ): void;
   removeEventListener(
@@ -56,63 +40,24 @@ export interface GraphQL extends EventTarget {
   ): void;
 }
 
-export interface GraphQLOptions {
-  /**
-   * @default false
-   */
-  disablePong: boolean;
-}
+export function createClient(
+  url: string | URL,
+  { disableConnectionInit }: Readonly<Partial<GraphQLClientOptions>> = {},
+): Client {
+  const socket = createWebSocket(url);
+  const client = new GraphQLTransportWsImpl(socket) as Client;
 
-export abstract class GraphQLImpl implements GraphQL {
-  #sender: Sender;
+  const pingHandler = createPingHandler(client.socket);
 
-  #eventTarget: EventTarget;
+  client.addEventListener("ping", pingHandler);
 
-  constructor(
-    public socket: WebSocket,
-  ) {
-    this.#eventTarget = new EventTarget();
-    this.#sender = new SenderImpl(socket);
+  if (!disableConnectionInit) {
+    client.connectionInit();
   }
 
-  abstract messageHandler: MessageHandler;
+  client.socket.addEventListener("close", () => {
+    client.removeEventListener("ping", pingHandler);
+  }, { once: true });
 
-  ping(): void {
-    this.#sender.ping();
-  }
-
-  pong(): void {
-    this.#sender.pong();
-  }
-
-  complete(id: string): void {
-    this.#sender.complete(id);
-  }
-
-  addEventListener(
-    type: string,
-    listener: EventListenerOrEventListenerObject | null,
-    options?: boolean | AddEventListenerOptions | undefined,
-  ): void {
-    this.#eventTarget.addEventListener(type, listener, options);
-
-    this.socket.addEventListener("message", this.messageHandler);
-  }
-
-  removeEventListener<K extends keyof GraphQLEventMap>(
-    type: K,
-    listener: (this: GraphQL, ev: GraphQLEventMap[K]) => any,
-    options?: boolean | EventListenerOptions | undefined,
-  ): void;
-  removeEventListener(
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    options?: boolean | EventListenerOptions | undefined,
-  ): void {
-    this.#eventTarget.removeEventListener(type, listener, options);
-  }
-
-  dispatchEvent(event: Event): boolean {
-    return this.#eventTarget.dispatchEvent(event);
-  }
+  return client;
 }

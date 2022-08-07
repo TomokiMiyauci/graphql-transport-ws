@@ -1,5 +1,5 @@
 import MessageType from "./message_type.ts";
-import { ExecutionArgs } from "./deps.ts";
+import { ExecutionArgs, PartialBy } from "./deps.ts";
 
 export type RequiredExecutionArgs = Pick<ExecutionArgs, "schema">;
 export type PartialExecutionArgs = Omit<ExecutionArgs, "schema">;
@@ -20,3 +20,5 @@ export interface BaseMessage {
 export type WithId = {
   readonly id: string;
 };
+
+export type GraphQLArgs = PartialBy<ExecutionArgs, "document">;
