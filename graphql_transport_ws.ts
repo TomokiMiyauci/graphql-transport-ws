@@ -11,29 +11,25 @@ import {
   PongMessage,
   SubscribeMessage,
 } from "./types.ts";
-import { createMessageEventHandler, createSocketListener } from "./handlers.ts";
+import { createMessageEventHandler, MessageEventHandlers } from "./handlers.ts";
 import {
   FormattedExecutionResult,
   GraphQLFormattedError,
   GraphQLRequestParameters,
   ObjMap,
 } from "./deps.ts";
-import {
-  createWebSocket,
-  Disposable,
-  Dispose,
-  Sender,
-  SenderImpl,
-} from "./utils.ts";
+import { createWebSocket, Sender, SenderImpl } from "./utils.ts";
 import { UNKNOWN } from "./constants.ts";
 
 type CapturedCallbacks<TData = ObjMap<unknown>, TExtensions = ObjMap<unknown>> =
   {
-    onNext(callback: FormattedExecutionResult<TData, TExtensions>): void;
+    onNext(
+      callback: FormattedExecutionResult<TData, TExtensions>,
+    ): void | Promise<void>;
 
-    onError(callback: GraphQLFormattedError[]): void;
+    onError(callback: GraphQLFormattedError[]): void | Promise<void>;
 
-    onCompleted(): void;
+    onComplete(): void | Promise<void>;
   };
 
 /** Sub-protocol of `graphql-transport-ws` event map. */
@@ -87,7 +83,7 @@ export interface GraphQLTransportWs extends EventTarget {
   subscribe(
     graphqlParams: Readonly<GraphQLRequestParameters>,
     callbacks?: Readonly<Partial<CapturedCallbacks>>,
-  ): { id: string } & Disposable;
+  ): { id: string };
 
   /** Send `Next` message.
    * If the connection is not yet open, sending the message is queued.
@@ -143,64 +139,18 @@ export interface GraphQLTransportWs extends EventTarget {
 export class GraphQLTransportWsImpl implements GraphQLTransportWs {
   #sender: Sender;
 
-  #eventTarget: EventTarget;
+  #eventTarget: EventTarget = new EventTarget();
 
-  #messageHandler: MessageEventHandler;
+  #completedIds: Set<string> = new Set();
 
-  /** Memory completed subscription ids. */
-  #idMap: ExpandedMap<string, (() => void) | undefined> = new ExpandedMap<
-    string,
-    (() => void) | undefined
-  >();
+  #messageHandler: MessageEventHandler = createMessageEventHandler(
+    createMessageDispatcher.call(this, { blocklist: this.#completedIds }),
+  );
 
   constructor(
     public socket: WebSocket,
   ) {
-    this.#eventTarget = new EventTarget();
     this.#sender = new SenderImpl(socket);
-
-    this.#messageHandler = createMessageEventHandler({
-      onConnectionInit: (ev) => {
-        const event = new MessageEvent("connectioninit", ev);
-        this.dispatchEvent(event);
-      },
-      onConnectionAck: (ev) => {
-        const event = new MessageEvent("connectionack", ev);
-        this.dispatchEvent(event);
-      },
-      onPing: (ev) => {
-        const event = new MessageEvent("ping", ev);
-        this.dispatchEvent(event);
-      },
-      onPong: (ev) => {
-        const event = new MessageEvent("pong", ev);
-        this.dispatchEvent(event);
-      },
-      onSubscribe: (ev) => {
-        const event = new MessageEvent("subscribe", ev);
-        this.dispatchEvent(event);
-      },
-      onNext: (ev) => {
-        if (this.#isAlive(ev.data.id)) {
-          const customEvent = new MessageEvent("next", ev);
-          this.dispatchEvent(customEvent);
-        }
-      },
-      onComplete: (ev) => {
-        const event = new MessageEvent("complete", ev);
-        this.dispatchEvent(event);
-      },
-      onError: (ev) => {
-        if (this.#isAlive(ev.data.id)) {
-          const customEvent = new MessageEvent("error", ev);
-          this.dispatchEvent(customEvent);
-        }
-      },
-      onUnknown: (ev) => {
-        const event = new MessageEvent(UNKNOWN, ev);
-        this.dispatchEvent(event);
-      },
-    });
   }
 
   connectionInit(payload?: Record<string, unknown>): void {
@@ -221,52 +171,49 @@ export class GraphQLTransportWsImpl implements GraphQLTransportWs {
 
   subscribe<TData = ObjMap<unknown>, TExtensions = ObjMap<unknown>>(
     graphqlParams: Readonly<GraphQLRequestParameters>,
-    { onCompleted, onError, onNext }: Readonly<
+    { onComplete, onError, onNext }: Readonly<
       Partial<CapturedCallbacks<TData, TExtensions>>
     > = {},
-  ): { id: string } & Disposable {
+  ): { id: string } {
     const id = crypto.randomUUID();
 
-    this.#idMap.set(id, onCompleted);
+    const nextHandler = createNextHandler(onNext, id);
+    const errorHandler = createErrorHandler(onError, id);
+    const completeHandler = createCompleteHandler(onComplete, id);
 
-    function isReceivable(
-      this: GraphQLTransportWsImpl,
-      fromId: string,
-    ): boolean {
-      return id === fromId && this.#isAlive(id);
-    }
+    const completedHandler = createCompletedHandler.call(this);
+    const closeHandler = createCloseHandler.call(this);
 
-    const socketListener = createSocketListener({
-      onNext: ({ data }) => {
-        if (onNext && isReceivable.call(this, data.id)) {
-          onNext(data.payload as any);
-        }
-      },
-      onError: ({ data }) => {
-        if (onError && isReceivable.call(this, data.id)) {
-          onError(data.payload);
-        }
-      },
-      onComplete: ({ data: { id } }) => {
-        this.#idMap.deleteThen(id, (v) => {
-          this.#sender.complete(id);
-          v?.();
-        });
-      },
-    });
+    this.addEventListener("next", nextHandler);
+    this.addEventListener("error", errorHandler);
+    this.addEventListener("complete", completedHandler, { once: true });
+    this.socket.addEventListener("close", closeHandler, { once: true });
 
-    const disposeListen = socketListener(this.socket);
     const disposeSubscribeMessageSending = this.#sender.subscribe(
       id,
       graphqlParams,
     );
 
-    const dispose: Dispose = () => {
-      disposeSubscribeMessageSending?.();
-      disposeListen();
-    };
+    return { id };
 
-    return { id, dispose };
+    function createCompletedHandler(
+      this: GraphQLTransportWs,
+    ): MessageEventHandlers["onComplete"] {
+      return async (ev) => {
+        disposeSubscribeMessageSending?.();
+        await completeHandler(ev);
+        this.removeEventListener("next", nextHandler);
+        this.removeEventListener("error", errorHandler);
+      };
+    }
+
+    function createCloseHandler(this: GraphQLTransportWs): EventListener {
+      return () => {
+        this.removeEventListener("next", nextHandler);
+        this.removeEventListener("error", errorHandler);
+        this.removeEventListener("complete", completedHandler);
+      };
+    }
   }
 
   next(id: string, payload: FormattedExecutionResult): void {
@@ -274,11 +221,17 @@ export class GraphQLTransportWsImpl implements GraphQLTransportWs {
   }
 
   error(id: string, payload: GraphQLFormattedError[]): void {
-    this.#sender.error(id, payload);
+    if (!this.#completedIds.has(id)) {
+      this.#completedIds.add(id);
+      this.#sender.error(id, payload);
+    }
   }
 
   complete(id: string): void {
-    this.#sender.complete(id);
+    if (!this.#completedIds.has(id)) {
+      this.#completedIds.add(id);
+      this.#sender.complete(id);
+    }
   }
 
   addEventListener<K extends keyof GraphQLTransportWsEventMap>(
@@ -318,10 +271,6 @@ export class GraphQLTransportWsImpl implements GraphQLTransportWs {
   dispatchEvent(event: Event): boolean {
     return this.#eventTarget.dispatchEvent(event);
   }
-
-  #isAlive(id: string): boolean {
-    return this.#idMap.has(id);
-  }
 }
 
 /** Create a providing the API for sending and receiving `graphql-transport-ws` accordance data.
@@ -339,16 +288,89 @@ export function createGraphQLTransportWs(
   return new GraphQLTransportWsImpl(socket);
 }
 
-class ExpandedMap<K, V> extends Map<K, V> {
-  constructor() {
-    super();
-  }
-
-  deleteThen(key: K, fn: (value: V) => void) {
-    if (this.has(key)) {
-      const value = this.get(key)!;
-      this.delete(key);
-      fn(value);
+function createNextHandler<
+  TData = ObjMap<unknown>,
+  TExtensions = ObjMap<unknown>,
+>(
+  callback: CapturedCallbacks<TData, TExtensions>["onNext"] | undefined,
+  id: string,
+): MessageEventHandlers["onNext"] {
+  return async ({ data }) => {
+    if (data.id === id) {
+      await callback?.call(null, data.payload as any);
     }
-  }
+  };
+}
+
+function createErrorHandler(
+  callback: CapturedCallbacks["onError"] | undefined,
+  id: string,
+): MessageEventHandlers["onError"] {
+  return async ({ data }) => {
+    if (data.id === id) {
+      await callback?.call(null, data.payload);
+    }
+  };
+}
+
+function createCompleteHandler(
+  callback: CapturedCallbacks["onComplete"] | undefined,
+  id: string,
+): MessageEventHandlers["onComplete"] {
+  return async ({ data }) => {
+    if (data.id === id) {
+      await callback?.call(null);
+    }
+  };
+}
+
+function createMessageDispatcher(
+  this: GraphQLTransportWsImpl,
+  ctx: { blocklist: Set<string> },
+): MessageEventHandlers {
+  return {
+    onConnectionInit: (ev) => {
+      const event = new MessageEvent("connectioninit", ev);
+      this.dispatchEvent(event);
+    },
+    onConnectionAck: (ev) => {
+      const event = new MessageEvent("connectionack", ev);
+      this.dispatchEvent(event);
+    },
+    onPing: (ev) => {
+      const event = new MessageEvent("ping", ev);
+      this.dispatchEvent(event);
+    },
+    onPong: (ev) => {
+      const event = new MessageEvent("pong", ev);
+      this.dispatchEvent(event);
+    },
+    onSubscribe: (ev) => {
+      const event = new MessageEvent("subscribe", ev);
+      this.dispatchEvent(event);
+    },
+    onNext: (ev) => {
+      if (!ctx.blocklist.has(ev.data.id)) {
+        const customEvent = new MessageEvent("next", ev);
+        this.dispatchEvent(customEvent);
+      }
+    },
+    onError: (ev) => {
+      if (!ctx.blocklist.has(ev.data.id)) {
+        const customEvent = new MessageEvent("error", ev);
+        this.dispatchEvent(customEvent);
+      }
+    },
+    onComplete: (ev) => {
+      if (!ctx.blocklist.has(ev.data.id)) {
+        ctx.blocklist.add(ev.data.id);
+        const event = new MessageEvent("complete", ev);
+        this.dispatchEvent(event);
+      }
+    },
+    onUnknown: (ev) => {
+      const event = new MessageEvent(UNKNOWN, ev);
+      this.dispatchEvent(event);
+    },
+  };
 }

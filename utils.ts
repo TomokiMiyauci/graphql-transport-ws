@@ -68,64 +68,60 @@ export function createWebSocket(url: string | URL): WebSocket {
 }
 
 export interface Sender {
-  connectionAck(payload?: ConnectionAckMessage["payload"]): void;
-  connectionInit(): undefined | Dispose;
-  ping(): Dispose | undefined;
-  pong(): Dispose | undefined;
+  connectionInit(
+    payload?: ConnectionInitMessage["payload"],
+  ): undefined | Dispose;
+  connectionAck(payload?: ConnectionAckMessage["payload"]): undefined | Dispose;
+  ping(payload?: PingMessage["payload"]): Dispose | undefined;
+  pong(payload?: PongMessage["payload"]): Dispose | undefined;
   subscribe(
     id: string,
     payload: GraphQLRequestParameters,
   ): undefined | Dispose;
-  next(id: NextMessage["id"], payload: NextMessage["payload"]): void;
-  error(id: ErrorMessage["id"], payload: ErrorMessage["payload"]): void;
+  next(
+    id: NextMessage["id"],
+    payload: NextMessage["payload"],
+  ): undefined | Dispose;
+  error(
+    id: ErrorMessage["id"],
+    payload: ErrorMessage["payload"],
+  ): undefined | Dispose;
   complete(id: string): Dispose | undefined;
 }
 
 export class SenderImpl implements Sender {
   constructor(protected socket: WebSocket) {}
 
-  ping() {
-    const result = safeSend(this.socket, JSON.stringify(Messenger.ping()));
-    return getDispose(result);
-  }
-
-  pong() {
-    const result = safeSend(this.socket, JSON.stringify(Messenger.pong()));
-    return getDispose(result);
-  }
-
-  complete(id: string) {
+  connectionInit(payload?: ConnectionInitMessage["payload"]) {
     const result = safeSend(
       this.socket,
-      JSON.stringify(Messenger.complete(id)),
+      JSON.stringify(Messenger.connectionInit(payload)),
     );
+
     return getDispose(result);
   }
 
-  connectionAck(payload?: ConnectionAckMessage["payload"]): void {
-    safeSend(
+  connectionAck(payload?: ConnectionAckMessage["payload"]) {
+    const result = safeSend(
       this.socket,
       JSON.stringify(Messenger.connectionAck(payload)),
     );
+    return getDispose(result);
   }
 
-  next(
-    id: NextMessage["id"],
-    payload: NextMessage["payload"],
-  ): void {
-    safeSend(this.socket, JSON.stringify(Messenger.next(id, payload)));
-  }
-
-  error(id: ErrorMessage["id"], payload: ErrorMessage["payload"]): void {
-    safeSend(this.socket, JSON.stringify(Messenger.error(id, payload)));
-  }
-
-  connectionInit() {
+  ping(payload?: PingMessage["payload"]) {
     const result = safeSend(
       this.socket,
-      JSON.stringify(Messenger.connectionInit()),
+      JSON.stringify(Messenger.ping(payload)),
     );
+    return getDispose(result);
+  }
 
+  pong(payload?: PongMessage["payload"]) {
+    const result = safeSend(
+      this.socket,
+      JSON.stringify(Messenger.pong(payload)),
+    );
     return getDispose(result);
   }
 
@@ -135,6 +131,33 @@ export class SenderImpl implements Sender {
       JSON.stringify(Messenger.subscribe(id, payload)),
     );
 
+    return getDispose(result);
+  }
+
+  next(
+    id: NextMessage["id"],
+    payload: NextMessage["payload"],
+  ) {
+    const result = safeSend(
+      this.socket,
+      JSON.stringify(Messenger.next(id, payload)),
+    );
+    return getDispose(result);
+  }
+
+  error(id: ErrorMessage["id"], payload: ErrorMessage["payload"]) {
+    const result = safeSend(
+      this.socket,
+      JSON.stringify(Messenger.error(id, payload)),
+    );
+    return getDispose(result);
+  }
+
+  complete(id: string) {
+    const result = safeSend(
+      this.socket,
+      JSON.stringify(Messenger.complete(id)),
+    );
     return getDispose(result);
   }
 }

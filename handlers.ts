@@ -159,23 +159,6 @@ export function createOpenHandler(
   };
 }
 
-export function createSocketListener(
-  options?: Partial<MessageEventHandlers>,
-): (socket: WebSocket) => Dispose {
-  return (socket) => {
-    const messageHandler = createMessageEventHandler(options);
-
-    const dispose: Dispose = () => {
-      socket.removeEventListener("message", messageHandler);
-    };
-
-    socket.addEventListener("message", messageHandler);
-    socket.addEventListener("close", dispose, { once: true });
-
-    return dispose;
-  };
-}
-
 export type SocketListenerContext = {
   authorized: boolean;
   idMap: Map<string, AsyncGenerator>;
@@ -200,19 +183,6 @@ export function createConnectionInitHandler(
       socket,
       JSON.stringify(Messenger.connectionAck()),
     );
-  };
-}
-
-/** Create `complete` event handler */
-export function createCompleteHandler(
-  _: WebSocket,
-  { idMap }: SocketListenerContext,
-): MessageEventHandler<CompleteMessage> {
-  return async ({ data: { id } }) => {
-    // Cancel subscription iteration when complete message receive.
-    const asyncGen = idMap.get(id);
-    idMap.delete(id);
-    await asyncGen?.return(undefined);
   };
 }
 
@@ -329,6 +299,21 @@ export function createSubscribeHandler(
     if (has) {
       const msg = Messenger.complete(id);
       safeSend(socket, JSON.stringify(msg));
+    }
+  };
+}
+
+/** Create `complete` event handler */
+export function createCompleteHandler(
+  _: WebSocket,
+  { idMap }: SocketListenerContext,
+): MessageEventHandler<CompleteMessage> {
+  return async ({ data: { id } }) => {
+    // Cancel subscription iteration when complete message receive.
+    const asyncGen = idMap.get(id);
+    if (asyncGen) {
+      idMap.delete(id);
+      await asyncGen.return(undefined);
     }
   };
 }
