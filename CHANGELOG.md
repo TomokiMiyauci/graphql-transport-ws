@@ -1,3 +1,10 @@
+# [1.0.0-beta.9](https://github.com/TomokiMiyauci/graphql-transport-ws/compare/1.0.0-beta.8...1.0.0-beta.9) (2022-08-08)
+
+
+### Bug Fixes
+
+* **graphql_transport_ws:** add to remove event listener ([9dacd6e](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/9dacd6e4efd53d76c4cdd5959c63b0e35cd3fc93))
+
 # [1.0.0-beta.8](https://github.com/TomokiMiyauci/graphql-transport-ws/compare/1.0.0-beta.7...1.0.0-beta.8) (2022-08-08)
 
 
