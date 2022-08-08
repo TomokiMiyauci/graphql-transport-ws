@@ -21,16 +21,21 @@ import { Sender, SenderImpl } from "./utils.ts";
 import { MessageType, PROTOCOL, UNKNOWN } from "./constants.ts";
 import parseMessage from "./parse.ts";
 
-type CapturedCallbacks<TData = ObjMap<unknown>, TExtensions = ObjMap<unknown>> =
-  {
-    onNext(
-      callback: FormattedExecutionResult<TData, TExtensions>,
-    ): void | Promise<void>;
+type SubscriptionCallbacks<
+  TData = ObjMap<unknown>,
+  TExtensions = ObjMap<unknown>,
+> = {
+  /** Call on `next` message filtered only tracked connection. */
+  onNext(
+    callback: FormattedExecutionResult<TData, TExtensions>,
+  ): void | Promise<void>;
 
-    onError(callback: GraphQLFormattedError[]): void | Promise<void>;
+  /** Call on `error` message filtered only tracked connection. */
+  onError(callback: GraphQLFormattedError[]): void | Promise<void>;
 
-    onComplete(): void | Promise<void>;
-  };
+  /** Call on `complete` message filtered only tracked connection. */
+  onComplete(): void | Promise<void>;
+};
 
 /** Sub-protocol of `graphql-transport-ws` event map. */
 export interface GraphQLTransportWsEventMap {
@@ -82,24 +87,31 @@ export type MessageEventHandlers = {
  */
 export class GraphQLTransportWs implements EventTarget {
   #sender: Sender;
-
   #eventTarget: EventTarget = new EventTarget();
-
   #completedIds: Set<string> = new Set();
-
   #messageHandler: MessageEventHandler = createMessageEventHandler(
     createMessageDispatcher.call(this, { blocklist: this.#completedIds }),
   );
+  #closeHandler: EventListener;
 
+  /** WebSocket itself. */
   socket: WebSocket;
 
   constructor(
+    /** The URL to which to connect; this should be the URL to which the WebSocket server will respond.
+     * Or WebSocket itself.
+     */
     urlOrSocket: string | URL | WebSocket,
   ) {
     this.socket = isWebSocket(urlOrSocket)
       ? urlOrSocket
       : createWebSocket(urlOrSocket);
     this.#sender = new SenderImpl(this.socket);
+    function closeHandler(this: GraphQLTransportWs): void {
+      this.socket.removeEventListener("message", this.#messageHandler);
+    }
+
+    this.#closeHandler = closeHandler.bind(this);
   }
 
   onconnectioninit:
@@ -194,7 +206,7 @@ export class GraphQLTransportWs implements EventTarget {
   subscribe<TData = ObjMap<unknown>, TExtensions = ObjMap<unknown>>(
     graphqlParams: Readonly<GraphQLRequestParameters>,
     { onComplete, onError, onNext }: Readonly<
-      Partial<CapturedCallbacks<TData, TExtensions>>
+      Partial<SubscriptionCallbacks<TData, TExtensions>>
     > = {},
   ): { id: string } {
     const id = crypto.randomUUID();
@@ -292,6 +304,7 @@ export class GraphQLTransportWs implements EventTarget {
     this.#eventTarget.addEventListener(type, listener, options);
 
     this.socket.addEventListener("message", this.#messageHandler);
+    this.socket.addEventListener("close", this.#closeHandler, { once: true });
   }
 
   removeEventListener<K extends keyof GraphQLTransportWsEventMap>(
@@ -374,7 +387,7 @@ function createNextHandler<
   TData = ObjMap<unknown>,
   TExtensions = ObjMap<unknown>,
 >(
-  callback: CapturedCallbacks<TData, TExtensions>["onNext"] | undefined,
+  callback: SubscriptionCallbacks<TData, TExtensions>["onNext"] | undefined,
   id: string,
 ): MessageEventHandlers["onNext"] {
   return async ({ data }) => {
@@ -385,7 +398,7 @@ function createNextHandler<
 }
 
 function createErrorHandler(
-  callback: CapturedCallbacks["onError"] | undefined,
+  callback: SubscriptionCallbacks["onError"] | undefined,
   id: string,
 ): MessageEventHandlers["onError"] {
   return async ({ data }) => {
@@ -396,7 +409,7 @@ function createErrorHandler(
 }
 
 function createCompleteHandler(
-  callback: CapturedCallbacks["onComplete"] | undefined,
+  callback: SubscriptionCallbacks["onComplete"] | undefined,
   id: string,
 ): MessageEventHandlers["onComplete"] {
   return async ({ data }) => {
@@ -465,6 +478,7 @@ function createMessageDispatcher(
   };
 }
 
-function isWebSocket(value: unknown): value is WebSocket {
+/** Whether the value is instance of `WebSocket` or not. */
+export function isWebSocket(value: unknown): value is WebSocket {
   return value instanceof WebSocket;
 }

@@ -31,9 +31,7 @@ export function safeSend(
     safeSync(() => socket.send(data));
   }
 
-  const readyState = socket.readyState;
-
-  switch (readyState) {
+  switch (socket.readyState) {
     case socket.CONNECTING: {
       socket.addEventListener("open", openHandler, { once: true });
       const dispose = (): void => {
