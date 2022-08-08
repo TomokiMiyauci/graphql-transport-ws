@@ -102,6 +102,53 @@ export class GraphQLTransportWs implements EventTarget {
     this.#sender = new SenderImpl(this.socket);
   }
 
+  onconnectioninit:
+    | ((
+      this: GraphQLTransportWs,
+      ev: MessageEvent<ConnectionInitMessage>,
+    ) => any)
+    | null = null;
+
+  onconnectionack:
+    | ((
+      this: GraphQLTransportWs,
+      ev: MessageEvent<ConnectionAckMessage>,
+    ) => any)
+    | null = null;
+
+  onping:
+    | ((
+      this: GraphQLTransportWs,
+      ev: MessageEvent<PingMessage>,
+    ) => any)
+    | null = null;
+
+  onpong:
+    | ((
+      this: GraphQLTransportWs,
+      ev: MessageEvent<ConnectionAckMessage>,
+    ) => any)
+    | null = null;
+
+  onsubscribe:
+    | ((this: GraphQLTransportWs, ev: MessageEvent<SubscribeMessage>) => any)
+    | null = null;
+
+  onnext:
+    | ((this: GraphQLTransportWs, ev: MessageEvent<NextMessage>) => any)
+    | null = null;
+
+  onerror:
+    | ((this: GraphQLTransportWs, ev: MessageEvent<ErrorMessage>) => any)
+    | null = null;
+
+  oncomplete:
+    | ((
+      this: GraphQLTransportWs,
+      ev: MessageEvent<CompleteMessage>,
+    ) => any)
+    | null = null;
+
   /** Send `ConnectionInit` message.
    * If the connection is not yet open, sending the message is queued.
    * If the connection is closed or about to be closed, sending message will discard.
@@ -364,43 +411,51 @@ function createMessageDispatcher(
   ctx: { blocklist: Set<string> },
 ): MessageEventHandlers {
   return {
-    onConnectionInit: (ev) => {
+    onConnectionInit: async (ev) => {
       const event = new MessageEvent("connectioninit", ev);
       this.dispatchEvent(event);
+      await this.onconnectioninit?.(event);
     },
-    onConnectionAck: (ev) => {
+    onConnectionAck: async (ev) => {
       const event = new MessageEvent("connectionack", ev);
       this.dispatchEvent(event);
+      await this.onconnectionack?.(event);
     },
-    onPing: (ev) => {
+    onPing: async (ev) => {
       const event = new MessageEvent("ping", ev);
       this.dispatchEvent(event);
+      await this.onping?.(event);
     },
-    onPong: (ev) => {
+    onPong: async (ev) => {
       const event = new MessageEvent("pong", ev);
       this.dispatchEvent(event);
+      await this.onpong?.(event);
     },
-    onSubscribe: (ev) => {
+    onSubscribe: async (ev) => {
       const event = new MessageEvent("subscribe", ev);
       this.dispatchEvent(event);
+      await this.onsubscribe?.(event);
     },
-    onNext: (ev) => {
+    onNext: async (ev) => {
       if (!ctx.blocklist.has(ev.data.id)) {
-        const customEvent = new MessageEvent("next", ev);
-        this.dispatchEvent(customEvent);
+        const event = new MessageEvent("next", ev);
+        this.dispatchEvent(event);
+        await this.onnext?.(event);
       }
     },
-    onError: (ev) => {
+    onError: async (ev) => {
       if (!ctx.blocklist.has(ev.data.id)) {
-        const customEvent = new MessageEvent("error", ev);
-        this.dispatchEvent(customEvent);
+        const event = new MessageEvent("error", ev);
+        this.dispatchEvent(event);
+        await this.onerror?.(event);
       }
     },
-    onComplete: (ev) => {
+    onComplete: async (ev) => {
       if (!ctx.blocklist.has(ev.data.id)) {
         ctx.blocklist.add(ev.data.id);
         const event = new MessageEvent("complete", ev);
         this.dispatchEvent(event);
+        await this.oncomplete?.(event);
       }
     },
     onUnknown: (ev) => {

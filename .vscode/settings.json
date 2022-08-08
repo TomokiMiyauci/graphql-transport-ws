@@ -27,6 +27,12 @@
   "liveServer.settings.port": 5501,
   "cSpell.words": [
     "connectionack",
-    "connectioninit"
+    "connectioninit",
+    "onconnectionack",
+    "onconnectioninit",
+    "onnext",
+    "onping",
+    "onpong",
+    "onsubscribe"
   ]
 }

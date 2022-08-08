@@ -11,8 +11,15 @@ export type ClientEventMap = Pick<
   "ping" | "pong" | "complete" | "connectionack" | "next" | "error"
 >;
 
-export interface Client
-  extends Omit<GraphQLTransportWs, "connectionAck" | "next" | "error"> {
+export interface Client extends
+  Omit<
+    GraphQLTransportWs,
+    | "connectionAck"
+    | "next"
+    | "error"
+    | "onconnectioninit"
+    | "onsubscribe"
+  > {
   addEventListener<K extends keyof ClientEventMap>(
     type: K,
     listener: (

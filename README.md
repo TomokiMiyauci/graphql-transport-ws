@@ -27,6 +27,21 @@ utils
 
 ### Ping and Pong
 
+Event handler property:
+
+```ts
+import { GraphQLTransportWs } from "https://deno.land/x/graphql_transport_ws@$VERSION/mod.ts";
+const graphqlTransportWs = new GraphQLTransportWs("<ENDPOINT>");
+
+graphqlTransportWs.onpong = function (ev) {
+  console.log(ev.data);
+};
+
+graphqlTransportWs.ping();
+```
+
+Event listener:
+
 ```ts
 import { GraphQLTransportWs } from "https://deno.land/x/graphql_transport_ws@$VERSION/mod.ts";
 const graphqlTransportWs = new GraphQLTransportWs("<ENDPOINT>");
@@ -39,6 +54,18 @@ graphqlTransportWs.ping();
 graphqlTransportWs.addEventListener("ping", () => {
   graphqlTransportWs.pong();
 });
+```
+
+### Connection init and Connection Ack
+
+```ts
+import { GraphQLTransportWs } from "https://deno.land/x/graphql_transport_ws@$VERSION/mod.ts";
+const graphqlTransportWs = new GraphQLTransportWs("<ENDPOINT>");
+
+graphqlTransportWs.onconnectionack = function (ev) {
+  console.log(ev);
+};
+graphqlTransportWs.connectionInit();
 ```
 
 ### Subscribe subscription

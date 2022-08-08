@@ -41,7 +41,15 @@ export type ServerEventMap = Pick<
   "ping" | "pong" | "complete" | "connectioninit" | "subscribe"
 >;
 
-export interface Server extends GraphQLTransportWs {
+export interface Server extends
+  Omit<
+    GraphQLTransportWs,
+    | "connectionInit"
+    | "subscribe"
+    | "onconnectionack"
+    | "onnext"
+    | "onerror"
+  > {
   addEventListener<K extends keyof ServerEventMap>(
     type: K,
     listener: (this: Server, ev: ServerEventMap[K]) => any,
