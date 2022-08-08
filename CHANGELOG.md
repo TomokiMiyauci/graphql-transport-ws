@@ -1,3 +1,18 @@
+# [1.0.0-beta.7](https://github.com/TomokiMiyauci/graphql-transport-ws/compare/1.0.0-beta.6...1.0.0-beta.7) (2022-08-08)
+
+
+### Bug Fixes
+
+* **graphql_transport_ws:** fix to dispatch event logic for completed id ([1081e03](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/1081e0315827e02b7c03536982e2c6a86bbe3051))
+* **types.ts:** fix to return message of `Next` types ([e41984c](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/e41984c83b593e415aa2085a6094522b61dee65f))
+
+
+### Features
+
+* **client:** add feature of automatically disconnection to unknown protocol ([6c29d24](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/6c29d249036a87cf3003041a1a8d213b132aaae6))
+* **graphql_transport_ws.ts:** `ping`, `pong`, `connectionInit`, `connectionAck` accept payload ([3d45f51](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/3d45f516a4d6570ed0f8ab0a43c39ea3848d964b))
+* **parse.ts:** export `parseMessage` that parse value as `graphql-transport-ws` message ([2541beb](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/2541bebd18e6954904bd150810bce62109d078ea))
+
 # [1.0.0-beta.6](https://github.com/TomokiMiyauci/graphql-transport-ws/compare/1.0.0-beta.5...1.0.0-beta.6) (2022-08-07)
 
 
