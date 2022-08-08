@@ -1,3 +1,11 @@
+# [1.0.0-beta.8](https://github.com/TomokiMiyauci/graphql-transport-ws/compare/1.0.0-beta.7...1.0.0-beta.8) (2022-08-08)
+
+
+### Features
+
+* **graphql_transport_ws:** add event listener property feature ([c2602e9](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/c2602e9dea096e79fe8697a2a2e382665d24b42e))
+* **graphql_transport_ws:** export `GraphQLTransportWs` class instead of `createGraphQLTransportWs` ([57ebfd5](https://github.com/TomokiMiyauci/graphql-transport-ws/commit/57ebfd5daaafdebcc6ea9cd3622d93581a6cd58a))
+
 # [1.0.0-beta.7](https://github.com/TomokiMiyauci/graphql-transport-ws/compare/1.0.0-beta.6...1.0.0-beta.7) (2022-08-08)
 
 
