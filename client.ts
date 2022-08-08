@@ -4,7 +4,15 @@ import {
   GraphQLTransportWsEventMap,
 } from "./graphql_transport_ws.ts";
 import { createPingHandler } from "./utils.ts";
-import { PROTOCOL, Status, STATUS_TEXT } from "./constants.ts";
+import {
+  ADD_EVENT_LISTENER_OPTIONS,
+  CLOSE,
+  MessageType,
+  OPEN,
+  PROTOCOL,
+  Status,
+  STATUS_TEXT,
+} from "./constants.ts";
 
 export type ClientEventMap = Pick<
   GraphQLTransportWsEventMap,
@@ -33,6 +41,7 @@ export interface Client extends
     listener: EventListenerOrEventListenerObject,
     options?: boolean | AddEventListenerOptions,
   ): void;
+
   removeEventListener<K extends keyof ClientEventMap>(
     type: K,
     listener: (
@@ -80,15 +89,19 @@ export function createClient(
 
   if (!disableUnknownProtocolDisconnection) {
     const openHandler = createOpenHandler(client.socket);
-    client.socket.addEventListener("open", openHandler, { once: true });
-    client.socket.addEventListener("close", openHandler);
+    client.socket.addEventListener(
+      OPEN,
+      openHandler,
+      ADD_EVENT_LISTENER_OPTIONS,
+    );
+    client.socket.addEventListener(CLOSE, openHandler);
   }
 
-  client.addEventListener("ping", pingHandler);
+  client.addEventListener(MessageType.Ping, pingHandler);
 
-  client.socket.addEventListener("close", () => {
-    client.removeEventListener("ping", pingHandler);
-  }, { once: true });
+  client.socket.addEventListener(CLOSE, () => {
+    client.removeEventListener(MessageType.Ping, pingHandler);
+  }, ADD_EVENT_LISTENER_OPTIONS);
 
   if (!disableInitialConnection) {
     client.connectionInit();

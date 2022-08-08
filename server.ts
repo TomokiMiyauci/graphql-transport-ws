@@ -30,7 +30,12 @@ import {
   validate,
 } from "./deps.ts";
 import {
+  ADD_EVENT_LISTENER_OPTIONS,
+  CLOSE,
+  CONNECTIONINIT,
   DEFAULT_CONNECTION_TIMEOUT,
+  MessageType,
+  OPEN,
   Status,
   STATUS_TEXT,
   UNKNOWN,
@@ -104,27 +109,27 @@ export function createServer(
   const openHandler = createOpenHandler(client.socket, ctx, {});
   const unknownHandler = createUnknownHandler(client.socket);
 
-  client.addEventListener("ping", pingHandler);
-  client.addEventListener("connectioninit", connectionInitHandler);
-  client.addEventListener("complete", completeHandler);
-  client.addEventListener("subscribe", subscribeHandler);
+  client.addEventListener(CONNECTIONINIT, connectionInitHandler);
+  client.addEventListener(MessageType.Subscribe, subscribeHandler);
+  client.addEventListener(MessageType.Ping, pingHandler);
+  client.addEventListener(MessageType.Complete, completeHandler);
   client.addEventListener(UNKNOWN, unknownHandler);
-  client.socket.addEventListener("open", openHandler, { once: true });
+  client.socket.addEventListener(OPEN, openHandler, ADD_EVENT_LISTENER_OPTIONS);
 
-  client.socket.addEventListener("close", async () => {
+  client.socket.addEventListener(CLOSE, async () => {
     await Promise.all(
       Array.from(ctx.idMap).map(async ([id, asyncGen]) => {
         ctx.idMap.delete(id);
         await asyncGen.return(undefined);
       }),
     );
-    client.removeEventListener("subscribe", subscribeHandler);
-    client.removeEventListener("ping", pingHandler);
-    client.removeEventListener("connectioninit", connectionInitHandler);
-    client.removeEventListener("complete", completeHandler);
+    client.removeEventListener(CONNECTIONINIT, connectionInitHandler);
+    client.removeEventListener(MessageType.Subscribe, subscribeHandler);
+    client.removeEventListener(MessageType.Ping, pingHandler);
+    client.removeEventListener(MessageType.Complete, completeHandler);
     client.removeEventListener(UNKNOWN, unknownHandler);
-    client.socket.removeEventListener("open", openHandler);
-  }, { once: true });
+    client.socket.removeEventListener(OPEN, openHandler);
+  }, ADD_EVENT_LISTENER_OPTIONS);
 
   return client;
 }

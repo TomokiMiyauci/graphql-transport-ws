@@ -10,7 +10,12 @@ import {
   PongMessage,
   SubscribeMessage,
 } from "./types.ts";
-import { MessageType } from "./constants.ts";
+import {
+  ADD_EVENT_LISTENER_OPTIONS,
+  CLOSE,
+  MessageType,
+  OPEN,
+} from "./constants.ts";
 
 type Result =
   | { sendable: false }
@@ -33,12 +38,12 @@ export function safeSend(
 
   switch (socket.readyState) {
     case socket.CONNECTING: {
-      socket.addEventListener("open", openHandler, { once: true });
+      socket.addEventListener(OPEN, openHandler, ADD_EVENT_LISTENER_OPTIONS);
       const dispose = (): void => {
-        socket.removeEventListener("open", openHandler);
+        socket.removeEventListener(OPEN, openHandler);
       };
 
-      socket.addEventListener("close", dispose, { once: true });
+      socket.addEventListener(CLOSE, dispose, ADD_EVENT_LISTENER_OPTIONS);
 
       return { sendable: true, sended: false, dispose };
     }

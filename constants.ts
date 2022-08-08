@@ -5,6 +5,11 @@ export const DEFAULT_CONNECTION_TIMEOUT = 3_000;
 
 export const CONNECTIONINIT = "connectioninit";
 export const CONNECTIONACK = "connectionack";
+export const OPEN = "open";
+export const CLOSE = "close";
+export const ADD_EVENT_LISTENER_OPTIONS: AddEventListenerOptions = {
+  once: true,
+};
 
 /** Definition of `graphql-transport-ws` WebSocket private status code. */
 export enum Status {

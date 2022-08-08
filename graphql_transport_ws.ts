@@ -18,7 +18,15 @@ import {
   ObjMap,
 } from "./deps.ts";
 import { Sender, SenderImpl } from "./utils.ts";
-import { MessageType, PROTOCOL, UNKNOWN } from "./constants.ts";
+import {
+  ADD_EVENT_LISTENER_OPTIONS,
+  CLOSE,
+  CONNECTIONACK,
+  CONNECTIONINIT,
+  MessageType,
+  PROTOCOL,
+  UNKNOWN,
+} from "./constants.ts";
 import parseMessage from "./parse.ts";
 
 type SubscriptionCallbacks<
@@ -218,10 +226,18 @@ export class GraphQLTransportWs implements EventTarget {
     const completedHandler = createCompletedHandler.call(this);
     const closeHandler = createCloseHandler.call(this);
 
-    this.addEventListener("next", nextHandler);
-    this.addEventListener("error", errorHandler);
-    this.addEventListener("complete", completedHandler, { once: true });
-    this.socket.addEventListener("close", closeHandler, { once: true });
+    this.addEventListener(MessageType.Next, nextHandler);
+    this.addEventListener(MessageType.Error, errorHandler);
+    this.addEventListener(
+      MessageType.Complete,
+      completedHandler,
+      ADD_EVENT_LISTENER_OPTIONS,
+    );
+    this.socket.addEventListener(
+      CLOSE,
+      closeHandler,
+      ADD_EVENT_LISTENER_OPTIONS,
+    );
 
     const disposeSubscribeMessageSending = this.#sender.subscribe(
       id,
@@ -236,16 +252,16 @@ export class GraphQLTransportWs implements EventTarget {
       return async (ev) => {
         disposeSubscribeMessageSending?.();
         await completeHandler(ev);
-        this.removeEventListener("next", nextHandler);
-        this.removeEventListener("error", errorHandler);
+        this.removeEventListener(MessageType.Next, nextHandler);
+        this.removeEventListener(MessageType.Error, errorHandler);
       };
     }
 
     function createCloseHandler(this: GraphQLTransportWs): EventListener {
       return () => {
-        this.removeEventListener("next", nextHandler);
-        this.removeEventListener("error", errorHandler);
-        this.removeEventListener("complete", completedHandler);
+        this.removeEventListener(MessageType.Next, nextHandler);
+        this.removeEventListener(MessageType.Error, errorHandler);
+        this.removeEventListener(MessageType.Complete, completedHandler);
       };
     }
   }
@@ -304,7 +320,11 @@ export class GraphQLTransportWs implements EventTarget {
     this.#eventTarget.addEventListener(type, listener, options);
 
     this.socket.addEventListener("message", this.#messageHandler);
-    this.socket.addEventListener("close", this.#closeHandler, { once: true });
+    this.socket.addEventListener(
+      CLOSE,
+      this.#closeHandler,
+      ADD_EVENT_LISTENER_OPTIONS,
+    );
   }
 
   removeEventListener<K extends keyof GraphQLTransportWsEventMap>(
@@ -425,40 +445,40 @@ function createMessageDispatcher(
 ): MessageEventHandlers {
   return {
     onConnectionInit: async (ev) => {
-      const event = new MessageEvent("connectioninit", ev);
+      const event = new MessageEvent(CONNECTIONINIT, ev);
       this.dispatchEvent(event);
       await this.onconnectioninit?.(event);
     },
     onConnectionAck: async (ev) => {
-      const event = new MessageEvent("connectionack", ev);
+      const event = new MessageEvent(CONNECTIONACK, ev);
       this.dispatchEvent(event);
       await this.onconnectionack?.(event);
     },
     onPing: async (ev) => {
-      const event = new MessageEvent("ping", ev);
+      const event = new MessageEvent(MessageType.Ping, ev);
       this.dispatchEvent(event);
       await this.onping?.(event);
     },
     onPong: async (ev) => {
-      const event = new MessageEvent("pong", ev);
+      const event = new MessageEvent(MessageType.Pong, ev);
       this.dispatchEvent(event);
       await this.onpong?.(event);
     },
     onSubscribe: async (ev) => {
-      const event = new MessageEvent("subscribe", ev);
+      const event = new MessageEvent(MessageType.Subscribe, ev);
       this.dispatchEvent(event);
       await this.onsubscribe?.(event);
     },
     onNext: async (ev) => {
       if (!ctx.blocklist.has(ev.data.id)) {
-        const event = new MessageEvent("next", ev);
+        const event = new MessageEvent(MessageType.Next, ev);
         this.dispatchEvent(event);
         await this.onnext?.(event);
       }
     },
     onError: async (ev) => {
       if (!ctx.blocklist.has(ev.data.id)) {
-        const event = new MessageEvent("error", ev);
+        const event = new MessageEvent(MessageType.Error, ev);
         this.dispatchEvent(event);
         await this.onerror?.(event);
       }
@@ -466,7 +486,7 @@ function createMessageDispatcher(
     onComplete: async (ev) => {
       if (!ctx.blocklist.has(ev.data.id)) {
         ctx.blocklist.add(ev.data.id);
-        const event = new MessageEvent("complete", ev);
+        const event = new MessageEvent(MessageType.Complete, ev);
         this.dispatchEvent(event);
         await this.oncomplete?.(event);
       }
