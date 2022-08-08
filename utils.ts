@@ -1,10 +1,10 @@
 import { GraphQLRequestParameters, safeSync } from "./deps.ts";
-import { PROTOCOL } from "./constants.ts";
 import {
   CompleteMessage,
   ConnectionAckMessage,
   ConnectionInitMessage,
   ErrorMessage,
+  MessageEventHandler,
   NextMessage,
   PingMessage,
   PongMessage,
@@ -60,11 +60,6 @@ export function getDispose(result: Result): undefined | (() => void) {
   if (result.sendable && !result.sended) {
     return result.dispose;
   }
-}
-
-/** Create `WebSocket` instance with `graphql-transport-ws` sub-protocol.  */
-export function createWebSocket(url: string | URL): WebSocket {
-  return new WebSocket(url, PROTOCOL);
 }
 
 export interface Sender {
@@ -229,4 +224,16 @@ export class Messenger {
       payload,
     };
   }
+}
+
+/** Create `ping` event handler. */
+export function createPingHandler(
+  socket: WebSocket,
+): MessageEventHandler<PingMessage> {
+  return () => {
+    safeSend(
+      socket,
+      JSON.stringify(Messenger.pong()),
+    );
+  };
 }

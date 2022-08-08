@@ -4,7 +4,7 @@ import {
   GraphQLTransportWs,
   GraphQLTransportWsEventMap,
 } from "./graphql_transport_ws.ts";
-import { createPingHandler } from "./handlers.ts";
+import { createPingHandler } from "./utils.ts";
 import { PROTOCOL, Status, STATUS_TEXT } from "./constants.ts";
 
 export type ClientEventMap = Pick<

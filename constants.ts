@@ -1,3 +1,4 @@
+/** Sub-protocol */
 export const PROTOCOL = "graphql-transport-ws";
 export const UNKNOWN = "$$unknown";
 export const DEFAULT_CONNECTION_TIMEOUT = 3_000;
@@ -5,7 +6,7 @@ export const DEFAULT_CONNECTION_TIMEOUT = 3_000;
 export const CONNECTIONINIT = "connectioninit";
 export const CONNECTIONACK = "connectionack";
 
-/** WebSocket private status code. */
+/** Definition of `graphql-transport-ws` WebSocket private status code. */
 export enum Status {
   /** GraphQL over WebSocket Protocol - Invalid message
    * @see [Invalid message](https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#invalid-message) */
@@ -45,7 +46,7 @@ export const STATUS_TEXT = {
   [Status.TooManyInitializationRequests]: `Too many initialization requests`,
 };
 
-/** Message type. */
+/** Definition of `graphql-transport-ws` message type. */
 export enum MessageType {
   /**
    * @see [ConnectionInit](https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md#connectioninit)

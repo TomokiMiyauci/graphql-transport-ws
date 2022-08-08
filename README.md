@@ -17,7 +17,13 @@ core
 
 utils
 
-- `parseMessage` - Parse the value as `graphql-transport-ws` Message data.
+- `parseMessage` - Parse the value as `graphql-transport-ws` message data.
+- `createWebSocket` - Create `WebSocket` instance with `graphql-transport-ws`
+  sub-protocol.
+- `PROTOCOL` - Sub-protocol
+- `MessageType` - Definition of `graphql-transport-ws` message type.
+- `Status` - Definition of `graphql-transport-ws` WebSocket private status code.
+- `STATUS_TEXT` - A record of all the private status codes text.
 
 ### Ping and Pong
 

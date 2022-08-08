@@ -11,15 +11,15 @@ import {
   PongMessage,
   SubscribeMessage,
 } from "./types.ts";
-import { createMessageEventHandler, MessageEventHandlers } from "./handlers.ts";
 import {
   FormattedExecutionResult,
   GraphQLFormattedError,
   GraphQLRequestParameters,
   ObjMap,
 } from "./deps.ts";
-import { createWebSocket, Sender, SenderImpl } from "./utils.ts";
-import { UNKNOWN } from "./constants.ts";
+import { Sender, SenderImpl } from "./utils.ts";
+import { MessageType, PROTOCOL, UNKNOWN } from "./constants.ts";
+import parseMessage from "./parse.ts";
 
 type CapturedCallbacks<TData = ObjMap<unknown>, TExtensions = ObjMap<unknown>> =
   {
@@ -43,6 +43,35 @@ export interface GraphQLTransportWsEventMap {
   error: MessageEvent<ErrorMessage>;
   complete: MessageEvent<CompleteMessage>;
 }
+
+export type MessageEventHandlers = {
+  /** Call on `connection_init` message. */
+  onConnectionInit: MessageEventHandler<ConnectionInitMessage>;
+
+  /** Call on `connection_ack` message. */
+  onConnectionAck: MessageEventHandler<ConnectionAckMessage>;
+
+  /** Call on `ping` message. */
+  onPing: MessageEventHandler<PingMessage>;
+
+  /** Call on `pong` message. */
+  onPong: MessageEventHandler<PongMessage>;
+
+  /** Call on `subscribe` message. */
+  onSubscribe: MessageEventHandler<SubscribeMessage>;
+
+  /** Call on `next` message. */
+  onNext: MessageEventHandler<NextMessage>;
+
+  /** Call on `error` message. */
+  onError: MessageEventHandler<ErrorMessage>;
+
+  /** Call on `complete` message. */
+  onComplete: MessageEventHandler<CompleteMessage>;
+
+  /** Call on unknown/unsupported message. */
+  onUnknown: EventListener;
+};
 
 /** Provides the API for `graphql-transport-ws` sending and receiving data. */
 export interface GraphQLTransportWs extends EventTarget {
@@ -286,6 +315,56 @@ export function createGraphQLTransportWs(
   const socket = url instanceof WebSocket ? url : createWebSocket(url);
 
   return new GraphQLTransportWsImpl(socket);
+}
+
+/** Create `WebSocket` instance with `graphql-transport-ws` sub-protocol.  */
+export function createWebSocket(url: string | URL): WebSocket {
+  return new WebSocket(url, PROTOCOL);
+}
+
+function createMessageEventHandler(
+  {
+    onComplete,
+    onConnectionAck,
+    onError,
+    onNext,
+    onPing,
+    onPong,
+    onConnectionInit,
+    onSubscribe,
+    onUnknown,
+  }: Readonly<Partial<MessageEventHandlers>> = {},
+): MessageEventHandler {
+  return async (ev) => {
+    const [message, error] = parseMessage(ev.data);
+
+    if (!message) {
+      const event = new MessageEvent(ev.type, {
+        ...ev,
+        data: error.message,
+      });
+      await onUnknown?.(event);
+      return;
+    }
+
+    const deserializedMessageEvent = new MessageEvent(ev.type, {
+      ...ev,
+      data: message,
+    });
+
+    const MessageTypeHandler = {
+      [MessageType.ConnectionInit]: onConnectionInit,
+      [MessageType.ConnectionAck]: onConnectionAck,
+      [MessageType.Ping]: onPing,
+      [MessageType.Pong]: onPong,
+      [MessageType.Subscribe]: onSubscribe,
+      [MessageType.Next]: onNext,
+      [MessageType.Error]: onError,
+      [MessageType.Complete]: onComplete,
+    };
+
+    return MessageTypeHandler[message.type]?.(deserializedMessageEvent);
+  };
 }
 
 function createNextHandler<

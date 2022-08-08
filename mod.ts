@@ -13,9 +13,9 @@ export {
   type SubscribeMessage,
 } from "./types.ts";
 export { MessageType, PROTOCOL, Status, STATUS_TEXT } from "./constants.ts";
-export { createWebSocket } from "./utils.ts";
 export {
   createGraphQLTransportWs,
+  createWebSocket,
   type GraphQLTransportWs,
 } from "./graphql_transport_ws.ts";
 export { type ClientOptions, createClient } from "./client.ts";
