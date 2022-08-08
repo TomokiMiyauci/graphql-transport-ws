@@ -1,6 +1,5 @@
 // deno-lint-ignore-file no-explicit-any
 import {
-  createGraphQLTransportWs,
   GraphQLTransportWs,
   GraphQLTransportWsEventMap,
 } from "./graphql_transport_ws.ts";
@@ -63,12 +62,13 @@ export type ClientOptions = {
  * - any of the values in `protocols` occur more than once, or otherwise fail to match the requirements for elements that comprise the value of `Sec-WebSocket-Protocol` fields as defined by the WebSocket Protocol specification
  */
 export function createClient(
-  url: string | URL | WebSocket,
+  urlOrSocket: string | URL | WebSocket,
   { disableInitialConnection, disableUnknownProtocolDisconnection }: Readonly<
     Partial<ClientOptions>
   > = {},
 ): Client {
-  const client = createGraphQLTransportWs(url);
+  const client = new GraphQLTransportWs(urlOrSocket);
+
   const pingHandler = createPingHandler(client.socket);
 
   if (!disableUnknownProtocolDisconnection) {

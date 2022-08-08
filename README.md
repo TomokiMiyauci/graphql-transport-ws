@@ -8,8 +8,8 @@ sub-protocol implementation.
 
 core
 
-- `createGraphQLTransportWs` - Create API that handles sending and receiving
-  messages for the `graphql-transport-ws` sub-protocol.
+- `GraphQLTransportWs` - Provides the API for `graphql-transport-ws` sending and
+  receiving data.
 - `createClient` - Create client-side `graphql-transport-ws` sub-protocol
   compliant API.
 - `createServer` - Create server-side `graphql-transport-ws` sub-protocol
@@ -28,8 +28,8 @@ utils
 ### Ping and Pong
 
 ```ts
-import { createGraphQLTransportWs } from "https://deno.land/x/graphql_transport_ws@$VERSION/mod.ts";
-const graphqlTransportWs = createGraphQLTransportWs("<ENDPOINT>");
+import { GraphQLTransportWs } from "https://deno.land/x/graphql_transport_ws@$VERSION/mod.ts";
+const graphqlTransportWs = new GraphQLTransportWs("<ENDPOINT>");
 
 graphqlTransportWs.addEventListener("pong", (ev) => {
   console.log(ev.data);
@@ -44,8 +44,8 @@ graphqlTransportWs.addEventListener("ping", () => {
 ### Subscribe subscription
 
 ```ts
-import { createGraphQLTransportWs } from "https://deno.land/x/graphql_transport_ws@$VERSION/mod.ts";
-const graphqlTransportWs = createGraphQLTransportWs("<ENDPOINT>");
+import { GraphQLTransportWs } from "https://deno.land/x/graphql_transport_ws@$VERSION/mod.ts";
+const graphqlTransportWs = new GraphQLTransportWs("<ENDPOINT>");
 
 graphqlTransportWs.addEventListener("connectionack", (ev) => {
   console.log(ev.data);

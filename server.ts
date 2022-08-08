@@ -1,7 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 
 import {
-  createGraphQLTransportWs,
   GraphQLTransportWs,
   GraphQLTransportWsEventMap,
 } from "./graphql_transport_ws.ts";
@@ -74,7 +73,7 @@ export function createServer(
   { url, schema }: Readonly<ServerParams>,
   options: Partial<PartialExecutionArgs> = {},
 ): Server {
-  const client = createGraphQLTransportWs(url) as Server;
+  const client = new GraphQLTransportWs(url) as Server;
 
   const idMap = new Map<string, AsyncGenerator>();
   const ctx: SocketListenerContext = {
